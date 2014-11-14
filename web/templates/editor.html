@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="US-ASCII">
+    <title>Web.RealTime - Editor</title>
+    <script type="text/javascript" src="/ext/jquery/.js"></script>
+	<script type="text/javascript" src="/ext/jquery/plugins/jquery.browser.js"></script>
+    <link rel="stylesheet" type="text/css" href="/ext/codemirror/.css">
+    <script type="text/javascript" src="/ext/codemirror/.js"></script>
+    <script src="/ext/codemirror/mode/xml/xml.js"></script>
+    <script src="/ext/codemirror/mode/javascript/javascript.js"></script>
+    <script src="/ext/codemirror/mode/css/css.js"></script>
+    <script src="/ext/codemirror/mode/vbscript/vbscript.js"></script>
+    <script src="/ext/codemirror/mode/htmlmixed/htmlmixed.js"></script>
+    <style>body { margin: 0px 9px; }
+    .container { display: table; width: 100%; }
+    div.CodeMirror { display: table-cell; height: 100%; width: 1px; vertical-align: top; }
+    div.preview { display: table-cell; height: 100%; background: #ded; vertical-align: top; }
+    iframe { width: 100%; height: 100%; border-width: 0; }
+    </style>
+</head>
+<body>
+
+	<div class="container">
+		<textarea id="code" name="code">{{ page.text }}</textarea>
+	
+		<div class="preview"><iframe width="100%"></iframe></div>
+	</div>
+
+	<script>
+	    var mixedMode = {
+            name: "htmlmixed"
+          };
+	    var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+	        lineNumbers: true,
+	        mode: mixedMode
+	    });
+	    
+	    // Fit CodeMirror to window height
+	    function winHeight() {
+	        return window.innerHeight || (document.documentElement || document.body).clientHeight;
+        }
+	    function fitToWindow() {
+	        var heightCss = {'height': (winHeight()-4) + 'px'};
+	        $('.CodeMirror').css(heightCss); 
+	        $('.preview').css(heightCss);
+	    }
+	    CodeMirror.on(window, 'resize', function() { fitToWindow(); });
+	    $(fitToWindow);
+
+	    // Set preview URL
+	    var previewUrl = "{{ previewUrl }}" || window.location.pathname;
+	    function reloadPreview() { $(".preview iframe").attr("src", previewUrl); }
+	    $(reloadPreview);
+	    
+	    // Ctrl+S or Cmd+S issue POST
+	    var postUrl = '{{ "/".join(["", "app"] + page.data_source_path) }}' || window.location.pathname;
+	    var contentType = '{{ page.contenttype }}';
+	    function save() {
+            $.ajax({url: postUrl, type: "POST", contentType: contentType, data: editor.getValue(),
+                success: reloadPreview})
+	    }
+	    $(window).keydown(function(event) {
+	        if (((event.which == 83 || event.which == 115) && (event.metaKey || event.ctrlKey)) || (event.which == 19)) {
+	            save();
+		        event.preventDefault();
+		        return false;
+	        }
+	        else return true;
+	    });	    
+	</script>	    
+
+</body>
+</html>

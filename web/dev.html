@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="UTF-8">
+	<title>Web.RealTime - dev</title>
+	<script src="js/lib/jquery/jquery-1.11.1.min.js"></script>
+	<script src="js/lib/jquery/plugins/jquery.browser.js"></script>
+	<script src="js/lib/jquery/plugins/jquery.iframe-auto-height.js"></script>
+    <link rel="stylesheet" href="js/lib/codemirror/lib/codemirror.css">
+    <script src="js/lib/codemirror/lib/codemirror.js"></script>
+    <script src="js/lib/codemirror/mode/xml/xml.js"></script>
+    <script src="js/lib/codemirror/mode/javascript/javascript.js"></script>
+    <script src="js/lib/codemirror/mode/css/css.js"></script>
+    <script src="js/lib/codemirror/mode/vbscript/vbscript.js"></script>
+    <script src="js/lib/codemirror/mode/htmlmixed/htmlmixed.js"></script>
+    <script src="js/lib/underscore.js/underscore-min.js"></script>
+    <style>body { margin: 0px 9px; }</style>
+</head>
+<body>
+
+	<div style="display: table; width: 100%">
+		<form style="display: table-cell; width: 1%; vertical-align: top">
+			<textarea id="code" name="code">&lt;h1&gt;Hi&lt;/h1&gt;</textarea>
+		</form>
+		
+		<iframe seamless style="display: table-cell; vertical-align: top; 
+			border: 1px solid black; width: 100%" id="page"></iframe>
+
+	</div>
+	
+	<script>
+	    var mixedMode = {
+            name: "htmlmixed"
+          };
+	    var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
+	        lineNumbers: true,
+	        mode: mixedMode
+	    });
+	    
+	    function winHeight() {
+	        return window.innerHeight || (document.documentElement || document.body).clientHeight;
+        }
+	    function fitToWindow() {
+	        $('.CodeMirror').css({'height': (winHeight()-20) + 'px'}); 
+	    }
+	    CodeMirror.on(window, 'resize', function() { fitToWindow(); });
+	    $(fitToWindow);
+
+	    /* Template language */
+	    function scriptTag(src) { var v = $("<script>"); v.attr('src', src); return v[0].outerHTML; }
+	    var MACROS = { jquery: scriptTag("js/lib/jquery/jquery-1.10.2.min.js"),
+	            underscore: {js: scriptTag("js/lib/underscore.js/underscore-min.js")},
+	            angularjs: scriptTag("js/lib/angularjs/angular.js"),
+	            backbone: {js: scriptTag("js/lib/backbone.js/backbone-min.js")},
+	            livescript: scriptTag("js/lib/livescript/livescript.js"),
+	            preludels: scriptTag("js/lib/livescript/prelude-browser-min.js"),
+	            bigtext: scriptTag("js/lib/bigtext/bigtext.js"),
+	            markdown: scriptTag("js/lib/markdown/markdown.min.js"),
+	            hashmap: scriptTag("js/lib/hashmap/hashmap.js"),
+	            socket: {io: scriptTag("js/lib/socket.io/socket.io-0.9.16.min.js")},
+	            dev: {realtime: scriptTag("js/dev.realtime.js")}}; 
+	    function process(s) {
+	    	return _.template(s, MACROS);    
+	    }
+	    
+	    /* iframe */
+	    var REFRESH_ON_EDIT = 1, REFRESH_TIMED = 2;
+	    var refresh_mode = REFRESH_TIMED;
+	    function display_in_iframe(s) {
+	        $('#page').attr('srcdoc', process(s));
+	    }
+	    editor.on("change", function(cm, co) {
+	        if (refresh_mode == REFRESH_ON_EDIT)
+	    		display_in_iframe(cm.getValue());
+	    });
+	    $('#page').iframeAutoHeight();  // dedicated plugin
+	    //$(function() { display_in_iframe(editor.getValue()); });
+	</script>
+
+
+	<script>
+		/* Persist */
+		var FLUSH_INTERVAL = 1000/*ms*/;
+		var code_key = location.search ? "code." + location.search.replace(/^\?/, "") : "code";
+		var dirty = {};
+		editor.on("change", function(cm, co) { dirty[code_key] = cm.getValue(); });
+		function flush() {
+		    for (var k in dirty) {
+		        window.localStorage.setItem(k, dirty[k]);
+		    }
+		    if (code_key in dirty && refresh_mode == REFRESH_TIMED)
+		        display_in_iframe(dirty[code_key]);
+		    dirty = {};
+		}
+		function fetch() {
+		    var v = window.localStorage.getItem(code_key);
+		    if (v != null) {
+		        editor.setValue(v);
+		    }
+		}
+		fetch();
+		setInterval(flush, 1000);
+	</script>
+
+</body>
+</html>
