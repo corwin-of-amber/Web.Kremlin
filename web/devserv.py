@@ -10,7 +10,7 @@ from flask import Flask, render_template, make_response, request
 from flask.ext.socketio import SocketIO, emit, join_room  # @UnresolvedImport (there is some dynamic loading trickery)
 
 from webdev.browser.local_storage import SafariLocalStoragePull
-from webdev.render.serve_packages import PackageTagSubst
+from webdev.render.serve_packages import ServePackages
 from webdev.datastore.root import DataStoreRoot
 from webdev.render.inject import InjectJsonObjectToHtml
 from webdev.render.query import PipeQuery, QueryContext
@@ -21,7 +21,7 @@ app = Flask(__name__)
 app.config.update(dict(DEBUG=True))
 socketio = SocketIO(app)
 
-client_package_tags = PackageTagSubst()
+package_man = ServePackages(app.root_path)
 
 
 @app.route('/')
@@ -39,24 +39,14 @@ def edit():
 def serve_from_local_storage(key):
     s = SafariLocalStoragePull()
     s.open_db("file__0*")
-    content = client_package_tags(s[key])
+    content = package_man.tags(s[key])
     resp = make_response(content, 200)
     #resp.headers['Content-Type'] = "text/plain"
     return resp
 
 @app.route('/ext/<package>/<path:resource>')
 def ext_resource(package, resource):
-    try:
-        package_config = client_package_tags.INSTALLED_PACKAGES[package]
-    except KeyError:
-        return "Package not found: '%s'" % package, 404
-    resource = package_config['aliases'].get(resource, resource)
-    try:
-        resp = make_response(open(os.path.join(app.root_path, package_config['path'], resource)).read(), 200)
-        resp.headers['Content-Type'] = client_package_tags.resource_contenttype(resource)
-        return resp
-    except IOError:
-        return "Resource not found: '%s / %s'" % (package, resource), 404
+    return package_man.serve(package, resource)
 
 @app.route('/loc/<package>/<path:resource>')
 def loc_resource(package, resource):
@@ -124,7 +114,7 @@ depends = Cabinet().of(NaiveOrderedSet)
 context = QueryContext()
 context.root = datastore
 context.inject = inject_json
-context.tags = client_package_tags
+context.tags = package_man.tags
 
 
 @app.route("/app/<path:query>")
@@ -140,15 +130,16 @@ def app_datastore(query):
 @app.route("/app/<path:query>", methods=["POST"])
 def app_datastore_post(query):
     query = query.split('/')
+    
+    # Acquire contents
     contenttype = request.headers["Content-type"]
     if contenttype.startswith("text/json"):
         data = json.loads(request.data)
     else:
         data = unicode(request.data, 'utf-8')
-    print contenttype
     if request.form: print request.form
-    print data
     assert isinstance(data, (str, unicode, list, tuple)), "data is neither text nor sequence"
+
     # Store new value(s)
     with datastore.transaction(): datastore.put(query, data)
             
