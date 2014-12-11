@@ -21,6 +21,8 @@ class Page(object):
     
     def _guess_contenttype(self):
         if isinstance(self.data, (str, unicode)):
+            if hasattr(self.data, 'content_subtype'):
+                return "text/%s" % (self.data.content_subtype)
             dsp = self.data_source_path
             if dsp and dsp[0] == 'views':
                 return "text/html"

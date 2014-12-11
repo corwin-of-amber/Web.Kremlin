@@ -9,12 +9,16 @@ import gevent.monkey ; gevent.monkey.patch_all()
 from flask import Flask, render_template, make_response, request
 from flask.ext.socketio import SocketIO, emit, join_room  # @UnresolvedImport (there is some dynamic loading trickery)
 
+from pattern.collection.basics import Cabinet, NaiveOrderedSet
+from pattern.functor import FunctorCompsition
+
 from webdev.browser.local_storage import SafariLocalStoragePull
 from webdev.render.serve_packages import ServePackages
 from webdev.datastore.root import DataStoreRoot
 from webdev.render.inject import InjectJsonObjectToHtml
 from webdev.render.query import PipeQuery, QueryContext
-from pattern.collection.basics import Cabinet, NaiveOrderedSet
+from webdev.render.directive import DependenciesDirective
+from webdev.datastore.preprocess import PreprocessingCore
 
 
 app = Flask(__name__)
@@ -110,11 +114,15 @@ def say_hi_to_dev(room):
 datastore = DataStoreRoot("app.db")
 inject_json = InjectJsonObjectToHtml()
 depends = Cabinet().of(NaiveOrderedSet)
+directives = DependenciesDirective(datastore)
 
 context = QueryContext()
 context.root = datastore
+context.prep = PreprocessingCore.configure()
 context.inject = inject_json
-context.tags = package_man.tags
+context.tags = FunctorCompsition([package_man.tags, directives])
+context.directives = directives
+
 
 
 @app.route("/app/<path:query>")
@@ -122,7 +130,10 @@ def app_datastore(query):
     query = PipeQuery(query)
     if 'edit' in request.args:
         page = query.fetch_view(context)
-        return render_template('editor.html', page=page)
+        subqueries = context.directives.extract_dependencies(page.text)
+        print subqueries
+        subpages = [PipeQuery(x).fetch_view(context) for x in subqueries]
+        return render_template('editor.html', pages=[page]+subpages) #, subpage])
     else:
         page = query(context)
         return page.render()

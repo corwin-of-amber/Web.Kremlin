@@ -13,37 +13,74 @@
     <script src="/ext/codemirror/mode/vbscript/vbscript.js"></script>
     <script src="/ext/codemirror/mode/htmlmixed/htmlmixed.js"></script>
     <style>body { margin: 0px 9px; }
-    .container { display: table; width: 100%; }
-    div.CodeMirror { display: table-cell; height: 100%; width: 1px; vertical-align: top; }
-    div.preview { display: table-cell; height: 100%; background: #ded; vertical-align: top; }
-    iframe { width: 100%; height: 100%; border-width: 0; }
+    .container { display: table; margin: 0; padding: 0; width: 100%; }
+    div.editor { display: table-cell; height: 100%; width: 100px; vertical-align: top; }
+    div.preview { display: table-cell; height: 100%; background: #ded; vertical-align: top;
+       padding: 0; margin: 0; }
+    iframe { width: 100%; height: 100%; border-width: 0; margin-bottom: 0; padding: 0; }
     </style>
 </head>
 <body>
 
 	<div class="container">
-		<textarea id="code" name="code">{{ page.text }}</textarea>
+	    <div class="editor">
+	        {% if pages|length > 1 %}
+		    <form style="width: 100%;">
+		    <select id="pager" style="width: 100%;">
+		    {% for page in pages %}
+		    <option>{{ '/'.join(page.data_source_path) }}</option>
+		    {% endfor %}
+		    </select>
+		    </form>
+		    {% endif %}
+		    {% for page in pages %} 
+			<textarea id="code{{loop.index}}" name="{{'/'.join(page.data_source_path)}}"
+			  >{{ page.text }}</textarea>
+		    {% endfor %}
+	    </div>
 	
-		<div class="preview"><iframe width="100%"></iframe></div>
+		<div class="preview"><iframe seamless width="100%"></iframe></div>
 	</div>
 
 	<script>
-	    var mixedMode = {
+        var pages = [
+   	       {% for page in pages %}
+   	       {
+      	     dataPath: "{{'/'.join(page.data_source_path)}}",
+   	         postUrl: '{{ "/".join(["", "app"] + page.data_source_path) }}' || window.location.pathname,
+             contentType: '{{ page.contenttype }}'
+      	   },
+      	   {% endfor %}
+      	   ]
+
+        var mixedMode = {
             name: "htmlmixed"
           };
-	    var editor = CodeMirror.fromTextArea(document.getElementById("code"), {
-	        lineNumbers: true,
-	        mode: mixedMode
-	    });
+
+        for (var idx = 0; idx < pages.length; idx++) {
+	        pages[idx].editor = CodeMirror.fromTextArea(document.getElementById("code" + (idx+1)), {
+	          lineNumbers: true,
+	          mode: mixedMode
+	        });
+	        pages[pages[idx].dataPath] = pages[idx];
+        }
 	    
+        var page = pages[0];
+        
+        
 	    // Fit CodeMirror to window height
 	    function winHeight() {
 	        return window.innerHeight || (document.documentElement || document.body).clientHeight;
         }
 	    function fitToWindow() {
-	        var heightCss = {'height': (winHeight()-4) + 'px'};
-	        $('.CodeMirror').css(heightCss); 
-	        $('.preview').css(heightCss);
+	    	var top = (page ? $(page.editor.getWrapperElement()) : $('.CodeMirror')).offset().top;
+	    	var wheight = winHeight();
+	        var heightCss = {
+	        	CodeMirror: {'height': (wheight-top) + 'px'},
+	        	preview: {'height': (wheight-4) + 'px'}
+	        };
+	        $('.CodeMirror').css(heightCss.CodeMirror); 
+	        $('.preview').css(heightCss.preview);
 	    }
 	    CodeMirror.on(window, 'resize', function() { fitToWindow(); });
 	    $(fitToWindow);
@@ -54,10 +91,10 @@
 	    $(reloadPreview);
 	    
 	    // Ctrl+S or Cmd+S issue POST
-	    var postUrl = '{{ "/".join(["", "app"] + page.data_source_path) }}' || window.location.pathname;
-	    var contentType = '{{ page.contenttype }}';
 	    function save() {
-            $.ajax({url: postUrl, type: "POST", contentType: contentType, data: editor.getValue(),
+	    	//page = pages[0];
+	    	var editor = page.editor;
+            $.ajax({url: page.postUrl, type: "POST", contentType: page.contentType, data: editor.getValue(),
                 success: reloadPreview})
 	    }
 	    $(window).keydown(function(event) {
@@ -67,7 +104,17 @@
 		        return false;
 	        }
 	        else return true;
-	    });	    
+	    });	
+	    
+        // Switch editors with the pager	    
+	    $('#pager').change(function() {
+	    	var val = $(this).val();
+	    	page = pages[val];
+	    	$(".CodeMirror").hide();
+	    	$(page.editor.getWrapperElement()).show();
+	    	fitToWindow();
+	    });
+        $('#pager').change();
 	</script>	    
 
 </body>

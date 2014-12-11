@@ -30,12 +30,19 @@ class PipeQuery(object):
             else:
                 raise ValueError, "page is not a view (%s)" % "/".join(page.data_source_path)
         if isinstance(page.data, (str, unicode)):
-            page.data = ctx.tags(page.data)
+            if ctx.prep and page.data.startswith("#!"):
+                shab, script = page.data.split('\n', 1)
+                page.data = ctx.prep.apply_filter(script, shab[2:].strip())
+            else:
+                page.data = ctx.tags(page.data)
         return page
     
     def fetch_view(self, ctx):
-        page = Page(ctx.root.get(self.query[-1]), data_source_path=self.query[-1])
-        if self.force_singular and page.data == []: page.data = ''
+        page_data = ctx.root.get(self.query[-1])
+        if self.force_singular:
+            page_data = [x[0] for x in page_data]
+            if page_data == []: page_data = ''
+        page = Page(page_data, data_source_path=self.query[-1])
         return page
     
     def __eq__(self, other):
@@ -65,5 +72,6 @@ class QueryContext(object):
         @param tags: a PackageTagSubst
         """ 
         self.root = None
+        self.prep = None
         self.inject = None
         self.tags = None

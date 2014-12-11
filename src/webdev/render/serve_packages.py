@@ -22,7 +22,7 @@ class UnderscoreTagSubst(object):
 class PackageTagSubst(UnderscoreTagSubst):
     
     SCRIPTS = {'jquery': "/ext/jquery/.js",
-               'livescript': ["/ext/livescript/.js", "/ext/livescript/boilerplate.js"],
+               'livescript': ["/ext/livescript/.js", "/ext/livescript/prelude.js", "/ext/livescript/boilerplate.js"],
                'socket.io': "/ext/socket.io/.js",
                'codemirror': "/ext/codemirror/.js",
                'angularjs': "/ext/angularjs/.js",
@@ -63,7 +63,7 @@ class ServePackages(object):
     INSTALLED_PACKAGES = {'jquery':      {'path': "js/lib/jquery",
                                           'aliases': {'.js': "jquery-1.11.1.min.js"}},
                           'livescript':  {'path': ["js/lib/livescript", "js/patch/livescript"],
-                                          'aliases': {'.js': "livescript.js"}},
+                                          'aliases': {'.js': "livescript.js", 'prelude.js': "prelude-browser-min.js"}},
                           'socket.io':   {'path': "js/lib/socket.io",
                                           'aliases': {'.js': "socket.io-0.9.16.min.js"}},  # 1.0.x currently does not play well with Flask-SocketIO
                           'codemirror':  {'path': "js/lib/codemirror",
