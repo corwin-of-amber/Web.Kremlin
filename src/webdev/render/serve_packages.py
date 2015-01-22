@@ -31,6 +31,8 @@ class PackageTagSubst(UnderscoreTagSubst):
                'angularjs.angularfire': "https://cdn.firebase.com/libs/angularfire/0.8.2/angularfire.js",
                'katex': ["/ext/katex/.css", "/ext/katex/.js", "/ext/katex/boilerplate.js"],
                'mathjax': ["/ext/mathjax/MathJax.js", "/loc/mathjax/boilerplate.js"],
+               'handsontable': ["/ext/handsontable/.js", "/ext/handsontable/.css"],
+               'nearley': ["/ext/nearley/.js"],
                'dev.realtime': "/loc/dev.realtime/.js",
                }
         
@@ -76,6 +78,10 @@ class ServePackages(object):
                                           'aliases': {'.js': "katex.min.js", '.css': "katex.min.css"}},
                           'mathjax':     {'path': ["js/lib/mathjax", "js/patch/mathjax"],
                                           'aliases': {'.js': "MathJax.js"}},
+                          'handsontable':{'path': ["js/lib/handsontable"],
+                                          'aliases': {'.js': "handsontable.full.js", '.css': "handsontable.full.css"}},
+                          'nearley':     {'path': ["js/lib/nearley"], 
+                                          'aliases': {'.js': 'nearley.js'}},
                           'dev.realtime':{'path': "js", 'aliases': {'.js': "dev.realtime.js"}}
                           }
     

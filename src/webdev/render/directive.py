@@ -37,9 +37,10 @@ class DirectiveTagSubst(object):
 
 class DependenciesDirective(DirectiveTagSubst):
     
-    def __init__(self, datastore=None, root_path="/app"):
+    def __init__(self, datastore=None, subquery_context=None, root_path="/app"):
         super(DependenciesDirective, self).__init__()
         self.datastore = datastore
+        self.context = subquery_context
         self.root_path = root_path
         self.directives.update({'uses': self.make_tag,
                                 'include': self.include})
@@ -48,9 +49,12 @@ class DependenciesDirective(DirectiveTagSubst):
         return "<script src='%s'>" % (self.root_path + "/" + argstring)
     
     def include(self, directive, argstring):
-        ctx = QueryContext()
-        ctx.root = self.datastore
-        return PipeQuery(argstring).fetch_view(ctx).data
+        if self.context:
+            ctx = self.context
+        else:
+            ctx = QueryContext()
+            ctx.root = self.datastore
+        return PipeQuery(argstring)(ctx).data
     
     def extract_dependencies(self, text_with_tags):
         print self.findall(text_with_tags)

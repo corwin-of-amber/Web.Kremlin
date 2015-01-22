@@ -1,5 +1,4 @@
 # encoding=utf-8
-import os.path
 
 import json
 
@@ -114,14 +113,13 @@ def say_hi_to_dev(room):
 datastore = DataStoreRoot("app.db")
 inject_json = InjectJsonObjectToHtml()
 depends = Cabinet().of(NaiveOrderedSet)
-directives = DependenciesDirective(datastore)
 
 context = QueryContext()
 context.root = datastore
 context.prep = PreprocessingCore.configure()
 context.inject = inject_json
-context.tags = FunctorCompsition([package_man.tags, directives])
-context.directives = directives
+context.directives = DependenciesDirective(datastore, context)
+context.tags = FunctorCompsition([package_man.tags, context.directives])
 
 
 
@@ -133,7 +131,7 @@ def app_datastore(query):
         subqueries = context.directives.extract_dependencies(page.text)
         print subqueries
         subpages = [PipeQuery(x).fetch_view(context) for x in subqueries]
-        return render_template('editor.html', pages=[page]+subpages) #, subpage])
+        return render_template('editor.html', pages=[page]+subpages)
     else:
         page = query(context)
         return page.render()

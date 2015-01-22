@@ -1,4 +1,5 @@
 from webdev.render.page import Page
+from pattern.mixins.attributes import WithMixIn
 
 
 class PipeQuery(object):
@@ -29,12 +30,10 @@ class PipeQuery(object):
                 page.data = page.data + ctx.inject.epilog(data_object)
             else:
                 raise ValueError, "page is not a view (%s)" % "/".join(page.data_source_path)
-        if isinstance(page.data, (str, unicode)):
-            if ctx.prep and page.data.startswith("#!"):
-                shab, script = page.data.split('\n', 1)
-                page.data = ctx.prep.apply_filter(script, shab[2:].strip())
-            else:
-                page.data = ctx.tags(page.data)
+        if ctx.prep:
+            page.data = ctx.prep(page.data, contenttype=page.contenttype) 
+        if isinstance(page.data, (str, unicode)) and ctx.tags:
+            page.data = ctx.tags(page.data)
         return page
     
     def fetch_view(self, ctx):
@@ -63,7 +62,7 @@ class PipeQuery(object):
         
 
 
-class QueryContext(object):
+class QueryContext(WithMixIn):
     
     def __init__(self):
         """

@@ -36,6 +36,10 @@ class Page(object):
         
     @property
     def contenttype(self):
+        return self._guess_contenttype()
+        
+    @property
+    def contenttype_full(self):
         return self._append_charset(self._guess_contenttype())
     
     @property
