@@ -1,0 +1,13 @@
+{
+  "name": "web-realtime",
+  "version": "0.0.1",
+  "main": "index.html",
+  "dependencies": {
+    "nw": "^0.12.2",
+    "underscore": "*",
+    "coffee-script": "*",
+    "livescript": "*",
+    "glob": "^5.0.9",
+    "chokidar": "^1.0.5"
+  }
+}

@@ -1,0 +1,40 @@
+<html>
+<head>
+  <script src="../reload.js"></script>
+  <%= jquery />
+  <%= angular />
+</head>
+<script type="text/ls">
+sqlite3 = require 'sqlite3'
+
+
+app = angular.module 'app', []
+  ..controller \Ctrl ($scope, appdb) ->
+    $scope.keys = []
+    appdb.select 'SELECT key FROM views' .then -> 
+      $scope.keys = it.map (.key)
+    $scope.pick = (key) ->
+      appdb.select 'SELECT * FROM views WHERE key=$key', \
+        {$key: key} .then ->
+          $scope.code = it[0].value
+  ..factory \appdb, ($q, $log) ->
+    appdb = new sqlite3.Database 'app.db'
+    select: (query, param={}) ->
+      (resolve, reject) <- $q
+      (err, data) <- appdb.all query, param
+      if err? then reject(err) else resolve(data)
+@ <<< {sqlite3}
+</script>
+<body>
+  <h1>Web.RealTime</h1>
+  <div ng-app='app' ng-controller='Ctrl'>
+    <table style="float: left; cursor: default">
+      <tr ng-repeat="key in keys">
+        <td ng-click="pick(key)">{{key}}</td>
+      </tr>
+    </table>
+    <pre id="code">{{code}}</pre>
+  </div>
+</body>
+<%= livescript />
+</html>

@@ -1,0 +1,54 @@
+<html>
+<head>
+  <script src="reload.js"></script>
+  <%= jquery />
+  <%= angular />
+</head>
+<script type="text/ls">
+fs = require('fs')
+path = require('path')
+
+app = angular.module 'app', []
+  ..controller \Apps ($scope, dirlist) ->
+    $scope.apps = []
+    dirlist.ls './apps' .then -> 
+      $scope.apps = it.filter dirlist.isDir .map (fn) -> 
+        name: path.basename fn
+        path: fn
+    $scope.goto = (app) ->
+      guess = path.join(app.path, path.basename(app.path) + ".html")
+      if dirlist.isFile(guess)
+        guess
+  ..factory \dirlist, ($q) ->
+    ls: (dir-path) ->
+      (resolve, reject) <- $q
+      (err, files) <- fs.readdir dir-path
+      if err? then reject(err) 
+      else resolve(files.map -> path.join(dir-path, it))
+    isDir: (path) -> 
+      try
+        fs.lstatSync(path).isDirectory()
+      catch
+        false
+    isFile: (path) ->
+      try
+        fs.lstatSync(path).isFile()
+      catch
+        false
+</script>
+<body>
+  <h1>Web.RealTime</h1>
+  <div ng-app='app' ng-controller='Apps'>
+    <table style="cursor: default">
+      <tr ng-repeat="app in apps">
+        <td><a href="{{goto(app)}}">{{app.name}}</a></td>
+      </tr>
+    </table>
+  </div>
+  
+  <p>
+  <a href="./src/browse-sqlite.html">Browse sqlite...</a>
+  </p>
+</body>
+<%= livescript />
+</html>
