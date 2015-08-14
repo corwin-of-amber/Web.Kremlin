@@ -1,0 +1,166 @@
+<script src="../../reload.js"></script>
+<%= jquery />
+<%= angular />
+
+<script type="text/ls">
+#BASE_URL = "http://localhost:2222"
+BASE_URL = "http://192.168.0.7:2222"
+
+app = angular.module "app" []
+  ..controller \Ctrl ($scope) ->
+    $scope.tracks = []
+    $scope.albums = []
+    $scope.artists = []
+    $scope.select = {}
+     
+    $scope.volume = 275
+    $scope.max-volume = 500
+    
+    $scope.base-url = BASE_URL
+    
+    $scope.play = (ids) ->
+      if $.isArray(ids) then ids = ids.join(",")
+      data <-! $.post @base-url + "/play", ""+ids
+      console.log "play: " + data
+    $scope.stop = ->
+      data <-! $.post @base-url + "/stop"
+      console.log data
+    
+    $scope.cu = (d) ->
+      {}
+        for k,v of d
+          if v? then ..[k] = v
+    
+    $scope.slice = (viewed, index) ->
+      [t._id for t in viewed[index to]]
+    
+    $scope.reload-tracks = ->
+      $.get @base-url, (data) !->
+        <- $scope.$apply
+        $scope.tracks = data
+        $scope.albums = project data, 'album'
+        $scope.artists = project data, 'artist'
+    
+    $scope.reload-tracks!
+    
+    $scope.upload = -> upload @base-url, @~reload-tracks
+    
+    $scope.$watch \volume (volume) ->
+      max = $scope.max-volume
+      $.get "#{$scope.base-url}/vol?#volume/#max"
+      
+  ..filter \project ->
+    (tracks, column) -> project tracks, column
+    
+uniq = (values) ->
+  []
+    for v in values
+      if v not in .. then ..push v
+    
+project = (tracks, column) ->
+  uniq [..[column] for tracks]
+  
+upload = (base-url, reload-cb) ->
+  fd = new FormData
+  $.each $('#upload')[0].files, (i, file) ->
+    fd.append 'payload', file
+  $.ajax do
+    url: "#{base-url}/upload"
+    type: \POST
+    data: fd
+    processData: false
+    contentType: false
+    xhr: ->
+      xhr = $.ajax-settings.xhr!
+      if xhr.upload
+        xhr.upload.addEventListener \progress (e) ->
+          pc = Math.round 100 * e.loaded / e.total
+          $ \#percentage .text "#pc%"
+      xhr
+    success: (data) !->
+      $ \#percentage .text ""
+      reload-cb!
+      console.log data
+    error: (xhr, status, error) !->
+      console.log "Upload failed."
+      console.log "Reason: #status - #error"
+      
+</script>
+
+<style>
+  .hi { 
+    background-color: rgba(0,0,255,0.2) !important; 
+  }
+  ul { 
+    border: 1px solid green; 
+    min-width: 150px; 
+    padding-left: 0px;
+    display: inline-block;
+  }
+  ul li {
+    padding-left: 5px;
+    padding-right: 5px;
+    white-space: nowrap;
+    overflow: hidden;
+    list-style-position: none;
+  }
+  ul li:nth-child(even) { 
+    background: rgba(0,0,0,0.08); 
+  }
+</style>
+
+<body ng-app="app"
+  ng-controller="Ctrl">
+  <div><input ng-model="baseUrl">
+  <button id="reload" ng-click="reloadTracks()">Reload</button>
+  </div>
+  <ul style="float: left">
+    <li ng-repeat="artist in tracks | project:'artist'" 
+      ng-click="select.artist=artist"
+      ng-class="{hi: select.artist==artist}">
+      {{artist}}
+    </li>
+    <li ng-click="select.artist=undefined"
+      ng-class="{hi: !select.artist}">
+      [all]</li>
+  </ul>
+  <ul style="float: left">
+    <li ng-repeat="album in tracks 
+      | filter:cu({artist: select.artist})
+      | project:'album'" 
+      ng-click="select.album=album"
+      ng-class="{hi: select.album==album}">
+      {{album}}
+    </li>
+    <li ng-click="select.album=undefined"
+      ng-class="{hi: !select.album}">
+      [all]</li>
+  </ul>
+  
+  <div style="clear: both">
+    <span ng-click="stop()">[stop]</span>
+    <input type="range" 
+      min="0" max="9999"
+      ng-attr-max="{{maxVolume}}" ng-model="volume">
+    <!-- set max to 9999 initially to avoid clipping
+      before ng-attr-max kicks in -->
+  </div>
+  
+  <table style="clear: left">
+    <tr ng-repeat="track in tracks 
+           | filter:cu(select):true as viewed"
+        ng-click="play(slice(viewed, $index))">
+      <td></td>
+      <td>{{track.title}}</td>
+      <td>{{track._id}}</td>
+    </tr>
+  </table>
+
+  <form>
+  <input id="upload" type="file" multiple>
+    <input id="button" type="button" value="Upload" ng-click="upload()">
+    <span id="percentage"></span>
+  </form>
+</body>
+
+<%= livescript />

@@ -1,0 +1,67 @@
+<script src="../../reload.js"></script>
+<%= jquery />
+
+<ul id="filters" style="float:left"></ul>
+
+<ul id="messages"></ul>
+
+<script src="gmail.ls.js"></script>
+<script type="text/ls">
+
+mailFilters = new DOMParser().parseFromString(fs.readFileSync(path.join(path.dirname(window.location.pathname), "mailFilters.xml"), 'utf-8'), "text/xml")
+
+for n in mailFilters.getElementsByTagName("property")
+  name = n.getAttribute("name")
+  if name in ["from", "hasTheWord"]
+    value = n.getAttribute("value")
+    q = if name == "from" then "from:#value" else value
+    $ \#filters .append ($ '<li>' .attr 'q' q .text "#name #value")
+
+$ \#filters .on \click 'li' ->
+  $ \#messages .empty!
+  gapi.fetch it.target.getAttribute 'q'
+
+
+ep = 'gmail/v1/users/me/messages'
+
+
+oauth = new OAuthClient(auth-uri)
+gapi = null
+
+dont$ = ->
+
+$ ->
+  oauth.authorize ->
+    if @token?
+      gapi := new GoogleApiClient @
+      gapi.fetch = (q) ->
+          gapi.call ep, {q}, (json, result) ->
+            console.log json
+            for m in json.messages
+              $ \#messages .append ($ '<li>' .attr 'data-id' m.id .text m.id)
+            id = json.messages[0].id
+            gapi.batch [["#{ep}/#{id}", {format: 'metadata', metadataHeaders: ['Subject', 'From', 'Date']}] \
+                        for id in json.messages.map (.id)], (data, result) ->
+              json = HttpMultipart.parseJson data
+              cnt = 0
+              now = new Date()
+              first = null
+              last = null
+              for msg in json
+                console.log msg
+                headers = {[h.name, h.value] for h in msg.payload.headers}
+                console.log headers
+                $("[data-id=#{msg.id}]").append [$ '<div>' .text "#k #v" for k,v of headers]
+                d = new Date(headers.Date)
+                if !last? then last = d
+                first = d
+                if now - d < (1000*60*60*24*30)
+                  cnt += 1
+              
+              daysActive = (last - first) / (1000*60*60*24)
+              console.log cnt, json.length / daysActive * 30
+
+@ <<< {fs, path, auth-uri, oauth}
+</script>
+ 
+<%= livescript />
