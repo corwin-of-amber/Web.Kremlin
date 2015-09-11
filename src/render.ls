@@ -26,38 +26,64 @@ macros = (PACKAGES, rootPath="") ->
 
 projdir = -> window.projdir
 there = -> window.there
-  
+
+Files =
+  ignore-patterns: ['**/node_modules/**', '**/public/**']
+
+  find-all: (glob-pattern, start-dir) ->
+    if !start-dir? then start-dir = projdir!
+    matches = glob.sync glob-pattern, do
+      match-base: true
+      cwd: start-dir
+      ignore: @ignore-patterns
+    matches.map -> path.join(start-dir, it)
+    
+  rewriteFileSync: (filename, content) ->
+    # This is done to refrain from tripping other fs watchers
+    if !fs.exists(filename) || fs.readFileSync(filename, 'utf-8') != content
+      fs.writeFileSync(filename, content)
+
+  Hash:
+    _memo: (global._reload_memo = global._reload_memo ? {})
+    of: (filename) -> fs.statSync filename .mtime
+    is-dirty: (filename) -> @of(filename) !== @_memo[filename]
+    commit: (filename) -> @_memo[filename] = @of(filename)
+    clear: -> @_memo = global._reload_memo = {}
+
+
 compile =
   ls: ->
-    inputs = glob.sync(projdir!+"/{,{apps,src}/**/}*.ls") 
-    inputs.map (input) ->
+    inputs = Files.find-all "*.ls" .filter Files.Hash~is-dirty
+    for input in inputs
       output = input + ".js"
       console.log "#{path.basename input} --> #{path.basename output}"
-      js = LiveScript.compile(fs.readFileSync(input).toString())
-      fs.writeFileSync(output, js)
+      js = LiveScript.compile(fs.readFileSync(input, 'utf-8'))
+      Files.rewriteFileSync(output, js)
       delete global.require.cache[fs.realpathSync(input)]
       delete global.require.cache[fs.realpathSync(output)]
+      Files.Hash.commit input
 
   coffee: ->
-    inputs = glob.sync(projdir!+"/{,{apps,src}/**/}*.coffee") 
-    inputs.map (input) ->
+    inputs = Files.find-all "*.coffee" .filter Files.Hash~is-dirty
+    for input in inputs
       output = input + ".js"
       console.log "#{path.basename input} --> #{path.basename output}"
-      js = CoffeeScript.compile(fs.readFileSync(input).toString())
-      fs.writeFileSync(output, js)
+      js = CoffeeScript.compile(fs.readFileSync(input, 'utf-8'))
+      Files.rewriteFileSync(output, js)
       delete global.require.cache[fs.realpathSync(input)]
       delete global.require.cache[fs.realpathSync(output)]
+      Files.Hash.commit input
 
   in: ->
     settings = {interpolate: /<%=(.+?)[/%]>/g}
-    inputs = glob.sync(projdir!+"/{,{apps,src}/**/}*.in.html")
+    inputs = glob.sync("#{projdir!}/**/*.in.html", {ignore: Files.ignore-patterns})
     inputs.map (input) ->
       output = input.replace(/\.in\.html$/, '.html')
       console.log "#{path.basename input} --> #{path.basename output}"
       rootDir = path.relative(path.dirname(output), there!+'/public')
       macros_ = macros(pkgconfig.PACKAGES, rootDir)
-      code = fs.readFileSync(input).toString()
-      fs.writeFileSync(output, _.template(code, settings)(macros_))
+      code = fs.readFileSync(input, 'utf-8')
+      Files.rewriteFileSync(output, _.template(code, settings)(macros_))
 
 
-export compile
+export compile, Files

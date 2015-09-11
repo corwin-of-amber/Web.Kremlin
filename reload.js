@@ -19,16 +19,19 @@ var fs = require('fs')
 /* require() works in mysterious ways */
 var projdir = fs.realpathSync(path.dirname(window.location.pathname));
 var thisScript = path.basename(document.currentScript.attributes.src.value)
+var thisScriptPath = path.join(projdir, document.currentScript.attributes.src.value)
 var here = '.'
 for (var i = 0; i < 5; i++) {
-  try { global.require.resolve(here + "/" + thisScript); break; }
+  try { global.require.resolve(path.join(here, thisScript)); break; }
   catch (e) { here = path.join(here, '..'); }
 }
+if (i >= 5) here = path.dirname(thisScriptPath);
 var there = path.dirname(window.location.pathname)
 for (var i = 0; i < 5; i++) {
   if (fs.existsSync(path.join(there, thisScript))) break;
   else there = path.dirname(there);
 }
+if (i >= 5) there = path.dirname(thisScriptPath);
 there = (path.relative(process.cwd(), there)) || ".";
 
 this.here = here
@@ -44,6 +47,25 @@ console.log('there = ' + there);
 
 var render = require(here+'/src/render');
 
+Reload = {
+  _ignored: function(filename) { 
+    return !(this._ignoreFuncs.every(function(f) { 
+      try { return !f(filename); } catch(e) { console.error(e); } 
+    }));
+  },
+  _ignoreFuncs: [function(filename) { return filename.split(path.sep).some(
+                   function(x) { return x[0] == '.' || x == 'node_modules' }) }],
+  ignore: function(filt) {
+    if (filt instanceof RegExp) f = function(filename) { return filename.match(filt); };
+    else if (filt.call) f = filt;
+    else {
+      console.error("Reload: invalid filter; must be a function or RegExp.");
+      return ;
+    }
+    this._ignoreFuncs.push(f);
+  }
+}
+
 
 function _rebuildAndReload() {
   console.group("rebuild " + projdir);
@@ -51,7 +73,7 @@ function _rebuildAndReload() {
   try {
     for (k in render.compile)
       try { render.compile[k]() }
-      catch(e) { nerrors++; console.error("Error in builder '" + k + "': " + e); }
+      catch(e) { nerrors++; console.error("Error in builder '" + k + "': " + e.stack); }
   
     var success = (nerrors == 0)
     if (success) _reload();
@@ -63,12 +85,13 @@ function _rebuildAndReload() {
 
 function _reload() {
   if (window.onbeforeunload) window.onbeforeunload();
-  window.location = window.location;
+  window.location.reload();
 }
   
 function _makeWatcher() {
   return fs.watch(projdir, {persistent: false, recursive: true}, function (event, filename) {
-    if (filename && filename[0] == '.') return ;
+    console.log(filename);
+    if (filename && Reload._ignored(filename)) return ;
     watcher.close();
     if (!_rebuildAndReload()) {
       setTimeout(function() {
@@ -79,4 +102,4 @@ function _makeWatcher() {
 }
 
 var watcher = _makeWatcher();
-window.addEventListener('unload', function() { watcher.close(); })
+window.addEventListener('unload', function() { console.log("Closing watcher!"); watcher.close(); })
