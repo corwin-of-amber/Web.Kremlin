@@ -84,6 +84,31 @@ compile =
       macros_ = macros(pkgconfig.PACKAGES, rootDir)
       code = fs.readFileSync(input, 'utf-8')
       Files.rewriteFileSync(output, _.template(code, settings)(macros_))
+      
+  jison: ->
+    inputs = Files.find-all "*.jison" .filter Files.Hash~is-dirty
+    cli = require 'jison/lib/cli'
+    for input in inputs
+      output = input + ".js"
+      console.log "#{path.basename input} --> #{path.basename output}"
+      cli.main {file: input, outfile: output, 'module-type': 'js'}
+      delete global.require.cache[fs.realpathSync(output)]
+      Files.Hash.commit input
+      
+  ne: ->
+    opts = {export: "grammar"}
+    inputs = Files.find-all "*.ne" .filter Files.Hash~is-dirty
+    nearley = require 'nearley'
+    [Compile, parserGrammar, generate] = [require('nearley/lib/compile'), require('nearley/lib/nearley-language-bootstrapped'), require('nearley/lib/generate')]
+    for input in inputs
+      output = input + ".js"
+      console.log "#{path.basename input} --> #{path.basename output}"
+      new nearley.Parser(parserGrammar.ParserRules, parserGrammar.ParserStart)
+        ..feed fs.readFileSync input, 'utf-8'
+        generate(Compile(..results[0], opts), opts.export)
+          Files.rewriteFileSync(output, ..)
+      delete global.require.cache[fs.realpathSync(output)]
+      Files.Hash.commit input
 
 
 export compile, Files

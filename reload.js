@@ -102,4 +102,4 @@ function _makeWatcher() {
 }
 
 var watcher = _makeWatcher();
-window.addEventListener('unload', function() { console.log("Closing watcher!"); watcher.close(); })
+window.addEventListener('unload', function() { watcher.close(); })

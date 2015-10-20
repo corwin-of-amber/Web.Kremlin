@@ -8,6 +8,9 @@
     "coffee-script": "*",
     "livescript": "*",
     "glob": "^5.0.9",
-    "chokidar": "^1.0.5"
+    "chokidar": "^1.0.5",
+
+    "jison": "~0.4.15",
+    "nearley", "~1.8.0"
   }
 }
