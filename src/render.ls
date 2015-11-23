@@ -28,10 +28,12 @@ projdir = -> window.projdir
 there = -> window.there
 
 Files =
+  projdir: '.'
+
   ignore-patterns: ['**/node_modules/**', '**/public/**']
 
   find-all: (glob-pattern, start-dir) ->
-    if !start-dir? then start-dir = projdir!
+    if !start-dir? then start-dir = @projdir
     matches = glob.sync glob-pattern, do
       match-base: true
       cwd: start-dir
@@ -51,7 +53,10 @@ Files =
     clear: -> @_memo = global._reload_memo = {}
 
 
-compile =
+compile = (reload) ->
+  projdir = Files.projdir = reload.projdir
+  incdir = reload.there
+
   ls: ->
     inputs = Files.find-all "*.ls" .filter Files.Hash~is-dirty
     for input in inputs
@@ -76,11 +81,11 @@ compile =
 
   in: ->
     settings = {interpolate: /<%=(.+?)[/%]>/g}
-    inputs = glob.sync("#{projdir!}/**/*.in.html", {ignore: Files.ignore-patterns})
+    inputs = glob.sync("#{projdir}/**/*.in.html", {ignore: Files.ignore-patterns})
     inputs.map (input) ->
       output = input.replace(/\.in\.html$/, '.html')
       console.log "#{path.basename input} --> #{path.basename output}"
-      rootDir = path.relative(path.dirname(output), there!+'/public')
+      rootDir = path.relative(path.dirname(output), incdir+'/public')
       macros_ = macros(pkgconfig.PACKAGES, rootDir)
       code = fs.readFileSync(input, 'utf-8')
       Files.rewriteFileSync(output, _.template(code, settings)(macros_))

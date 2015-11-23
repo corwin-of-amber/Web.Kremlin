@@ -1,49 +1,61 @@
-var gui = require('nw.gui');
-win = gui.Window.get();
-var nativeMenuBar = new gui.Menu({ type: "menubar" });
 try {
+var gui = require('nw.gui');
+try {
+  win = gui.Window.get();
+  var nativeMenuBar = new gui.Menu({ type: "menubar" });
   nativeMenuBar.createMacBuiltin("Web.RealTime");
   win.menu = nativeMenuBar;
 } catch (ex) {
   console.log(ex.message);
 }
+} catch (ex) { /* guess we're not running inside nwjs */ }
 
-
-global.require.extensions['.ls.js'] = global.require.extensions['.js']
-global.require.extensions['.coffee.js'] = global.require.extensions['.js']
 
 var fs = require('fs')
   , child_process = require('child_process')
   , path = require('path')
 
-/* require() works in mysterious ways */
-var projdir = fs.realpathSync(path.dirname(window.location.pathname));
-var thisScript = path.basename(document.currentScript.attributes.src.value)
-var thisScriptPath = path.join(projdir, document.currentScript.attributes.src.value)
-var here = '.'
-for (var i = 0; i < 5; i++) {
-  try { global.require.resolve(path.join(here, thisScript)); break; }
-  catch (e) { here = path.join(here, '..'); }
-}
-if (i >= 5) here = path.dirname(thisScriptPath);
-var there = path.dirname(window.location.pathname)
-for (var i = 0; i < 5; i++) {
-  if (fs.existsSync(path.join(there, thisScript))) break;
-  else there = path.dirname(there);
-}
-if (i >= 5) there = path.dirname(thisScriptPath);
-there = (path.relative(process.cwd(), there)) || ".";
+var mode;
 
-this.here = here
-this.there = there
-this.projdir = projdir
+if (typeof module != 'undefined') {
+    mode = 'cli';
 
-/*
-console.log('cwd = ' + process.cwd());
-console.log('path = ' + path.dirname(window.location.pathname));
-console.log('here = ' + here);
-console.log('there = ' + there);
-*/
+    require('LiveScript');
+
+    var here = path.dirname(module.filename);
+    var projdir = process.cwd();
+
+    global.require = require;
+    console.group = console.groupEnd = console.log;
+}
+else {
+    mode = 'nw';
+    /* require() works in mysterious ways */
+    var projdir = fs.realpathSync(path.dirname(window.location.pathname));
+    var thisScript = path.basename(document.currentScript.attributes.src.value)
+    var thisScriptPath = path.join(projdir, document.currentScript.attributes.src.value)
+    var here = '.'
+    var depth = 5;
+    for (var i = 0; i < depth; i++) {
+      try { global.require.resolve(path.join(here, thisScript)); break; }
+      catch (e) { here = path.join(here, '..'); }
+    }
+    if (i >= depth) here = path.dirname(thisScriptPath);
+    var there = path.dirname(window.location.pathname)
+    for (var i = 0; i < depth; i++) {
+      if (fs.existsSync(path.join(there, thisScript))) break;
+      else there = path.dirname(there);
+    }
+    if (i >= depth) there = path.dirname(thisScriptPath);
+    there = (path.relative(process.cwd(), there)) || ".";
+
+    this.here = here
+    this.there = there
+    this.projdir = projdir
+}
+
+global.require.extensions['.ls.js'] = global.require.extensions['.js'];
+global.require.extensions['.coffee.js'] = global.require.extensions['.js'];
 
 var render = require(here+'/src/render');
 
@@ -70,9 +82,10 @@ Reload = {
 function _rebuildAndReload() {
   console.group("rebuild " + projdir);
   var nerrors = 0
+  var compile = render.compile({projdir: projdir, there: there});
   try {
-    for (k in render.compile)
-      try { render.compile[k]() }
+    for (k in compile)
+      try { compile[k]() }
       catch(e) { nerrors++; console.error("Error in builder '" + k + "': " + e.stack); }
   
     var success = (nerrors == 0)
@@ -84,8 +97,10 @@ function _rebuildAndReload() {
 }
 
 function _reload() {
-  if (window.onbeforeunload) window.onbeforeunload();
-  window.location.reload();
+  if (mode == 'nw') {
+    if (window.onbeforeunload) window.onbeforeunload();
+    window.location.reload();
+  }
 }
   
 function _makeWatcher() {
@@ -101,5 +116,11 @@ function _makeWatcher() {
   });
 }
 
-var watcher = _makeWatcher();
-window.addEventListener('unload', function() { watcher.close(); })
+if (mode == 'nw') {
+  var watcher = _makeWatcher();
+  window.addEventListener('unload', function() { watcher.close(); })
+}
+
+if (mode == 'cli') {
+  _rebuildAndReload();
+}

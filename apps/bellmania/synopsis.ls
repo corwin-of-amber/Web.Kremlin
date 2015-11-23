@@ -6,6 +6,28 @@ LET_RE = /^\s*([\s\S]+?)\s+=\s+([\s\S]+?)\s*$/
 LOG_FILENAME = '/tmp/bell.json'
 
 
+class RefIds
+
+  -> @id2obj = {}
+
+  clear: -> @id2obj = {} ; @
+  
+  collect: (data) ->
+    recurse = (term) ~>
+      if (key = term._id)? then @id2obj[key] = term
+      term.subtrees?.forEach recurse
+    for doc in data
+      if (term = doc.term)? || (term = doc.value.term)?
+        recurse term
+      
+  deref: (obj) ->
+    if (id = obj.ref)? then @id2obj[id] || obj
+    else obj
+  
+
+_refIds = new RefIds
+  
+
 angular.module 'app', [\RecursionHelper]
   ..controller "Ctrl" ($scope) ->
     $scope.data = []
@@ -14,9 +36,9 @@ angular.module 'app', [\RecursionHelper]
       fs.readFile filename, 'utf-8', (err, text) ->
         $scope.$apply ->
           try
-            console.log text.split '\n\n'
-            $scope.data = [{value: JSON.parse(block)} \
-                           for block in text.split '\n\n' when block.length>0]
+            $scope.data = [{value: JSON.parse(block), index: i} \
+                           for block, i in text.split '\n\n' when block.length>0]
+            _refIds.clear!collect $scope.data
           catch
             void  # probably file is incomplete or has been deleted
     
@@ -67,12 +89,17 @@ angular.module 'app', [\RecursionHelper]
         text = input.tape.text
         []
           for [[u,v], mark] in input.tape.markup
+            _refIds.collect [mark]
+            if mark.term?
+              term = _refIds.deref(mark.term)
+              ns = term.root.ns || "global"
+            
             x = text.substring(last,u)
             y = text.substring(u,v)
             cls = ['mark'] ++ (if mark.type? then ['tip'] else [])
             last = v
             if x.length then ..push [x]
-            if y.length then ..push [y,cls,mark.type]
+            if y.length then ..push [y,cls,mark.type + " (#ns)"] #deref(mark.term).root.ns]
           x = text.substring(last)
           if x.length then ..push [x]
         #JSON.stringify input.tape.markup
