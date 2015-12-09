@@ -25,6 +25,8 @@ if (typeof module != 'undefined') {
     var here = path.dirname(module.filename);
     var projdir = process.cwd();
 
+    var there = path.relative(projdir, here) || ".";
+
     global.require = require;
     console.group = console.groupEnd = console.log;
 }
@@ -67,14 +69,18 @@ Reload = {
   },
   _ignoreFuncs: [function(filename) { return filename.split(path.sep).some(
                    function(x) { return x[0] == '.' || x == 'node_modules' }) }],
-  ignore: function(filt) {
-    if (filt instanceof RegExp) f = function(filename) { return filename.match(filt); };
-    else if (filt.call) f = filt;
-    else {
-      console.error("Reload: invalid filter; must be a function or RegExp.");
-      return ;
+  ignore: function(/*filters...*/) {
+    function ignore(filt) {
+      if (filt instanceof RegExp) f = function(filename) { return filename.match(filt); };
+      else if (filt.call) f = filt;
+      else {
+        console.error("Reload: invalid filter; must be a function or RegExp.");
+        return ;
+      }
+      this._ignoreFuncs.push(f);
     }
-    this._ignoreFuncs.push(f);
+    for (var i = 0; i < arguments.length; i++)
+      ignore.call(this, arguments[i]);
   }
 }
 
@@ -105,8 +111,8 @@ function _reload() {
   
 function _makeWatcher() {
   return fs.watch(projdir, {persistent: false, recursive: true}, function (event, filename) {
-    console.log(filename);
     if (filename && Reload._ignored(filename)) return ;
+    console.log(filename);
     watcher.close();
     if (!_rebuildAndReload()) {
       setTimeout(function() {
@@ -122,5 +128,8 @@ if (mode == 'nw') {
 }
 
 if (mode == 'cli') {
+  console.log("projdir=" + projdir);
+  console.log("here=" + here);
+  console.log("there=" + there);
   _rebuildAndReload();
 }

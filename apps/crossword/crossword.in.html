@@ -18,34 +18,23 @@
     td p { margin: 0; text-align: center; 
       -webkit-user-modify: read-write;
     }
+    body { display: flex; align-items: stretch; }
+    div.hints { 
+      background: url(birman.png);
+      background-repeat: no-repeat;
+      background-position: right -100px bottom;
+      flex: 1;
+    }
   </style>
   <body>
-    <table id="crossword">
-    </table>
-    <button id="clear">Clear</button>
+    <div>
+      <table id="crossword">
+      </table>
+      <button id="clear">Clear</button>
+    </div>
+    <div class="hints"></div>
   </body>
   <script src="grid.ls.js"></script>
-  <script type="text/ls">
-    cwdata =
-      idx: grid
-      get: ([row, col]) ->
-        if cwdata.idx[row]
-          that[col]
-    userdata =
-      fillin: new HashMap()
-      save: -> localStorage.setItem "userdata", \
-                   JSON.stringify userdata
-      load: ->
-        for own k,v of JSON.parse localStorage["userdata"]
-          userdata[k] <<< v
-    window.cwdata = cwdata
-    window.userdata = userdata
-    $ ->
-      $ '#clear' .click ->
-        userdata.fillin.clear!
-        userdata.save!
-        $ 'td p' .text ""
-  </script>
   <script type="text/ls">
   mcell =
     style: (td) ->
@@ -130,15 +119,22 @@
       for j in [1 to 13]
         td = $ "<td>"
         td.data 'rowcol', [i,j]
-        mcell.style td
         mcell.events td
         tr.append (td)
       cw.append tr
       
-    # Re-read previously filled-in letters
-    userdata.load!
-    userdata.fillin.for-each (v, k) ->
-      mcell.get k .find 'p' .text v
+    cw.on 'got-grid' ->
+      for td in $ '#crossword td'
+        mcell.style $(td)
+      # Re-read previously filled-in letters
+      userdata.load!
+      userdata.fillin.for-each (v, k) ->
+        mcell.get k .find 'p' .text v
+      
+    $ ->
+      $ '#clear' .click ->
+        userdata.new!
+        $ 'td p' .text ""
   </script>
   <%= livescript %>
 </html>
