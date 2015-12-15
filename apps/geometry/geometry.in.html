@@ -1,0 +1,77 @@
+<script src="../../reload.js"></script>
+
+<%= jquery />
+<%= angular />
+<%= livescript.prelude />
+
+<script src="./euclid.ls.js"></script>
+<script src="./model.ls.js"></script>
+<script src="./solve.ls.js"></script>
+
+<style>
+  svg {
+    width: 640px;
+    height: 480px;
+    background: #FAFFFA;
+    border: 1px dashed #9C9;
+  }
+  svg line.line {
+    stroke: slategrey;
+  }
+  svg circle.knob {
+    fill: rgba(0,0,0,0.3);
+  }
+  svg circle.knob.selected {
+    stroke: rgba(0,0,0,0.5);
+    stroke-width: 2px;
+  }
+  svg line.line.selected,
+  svg rect.iso-rectangle.selected {
+    stroke-width: 2px;
+  }
+  svg circle.circle {
+    stroke: slategrey;
+    fill: none;
+  }
+  svg rect.iso-rectangle {
+    stroke: black;
+    fill: white;
+  }
+  svg * { cursor: default; }
+</style>
+
+<div ng-app="app" ng-controller="Sketch">
+<svg ng-mousemove="moveEv($event)"
+     ng-mouseleave="tip = null; selected = null">
+  <line ng-repeat="v in vrule track by $index" 
+        ng-attr-x1="{{v.x}}" y1="0" ng-attr-x2="{{v.x}}" y2="100%" 
+        class="line vrule"
+        ng-class="{selected: v == selected.el}"></line>
+  <line ng-repeat="h in hrule track by $index" 
+        ng-attr-y1="{{h.y}}" x1="0" ng-attr-y2="{{h.y}}" x2="100%" 
+        class="line hrule"
+        ng-class="{selected: h == selected.el}"></line>
+  <line ng-repeat="s in segment track by $index"
+        ng-attr-x1="{{s.start[0]}}" ng-attr-y1="{{s.start[1]}}"
+        ng-attr-x2="{{s.end[0]}}" ng-attr-y2="{{s.end[1]}}"
+        class="line segment"
+        ng-class="{selected: s == selected.el}"></line>
+  <circle ng-repeat="c in circle track by $index"
+          ng-attr-cx="{{c.center[0]}}" ng-attr-cy="{{c.center[1]}}"
+          ng-attr-r="{{c.radius}}"
+          class="circle"
+          ng-class="{selected: c == selected.el}"></circle>
+  <rect ng-repeat="r in isoRectangle track by $index"
+        ng-attr-x="{{r.west}}" ng-attr-y="{{r.north}}"
+        ng-attr-width="{{r.east - r.west}}" ng-attr-height="{{r.south - r.north}}"
+        class="iso-rectangle"
+        ng-class="{selected: r == selected.el}"></rect>
+  <circle ng-repeat="p in point track by $index"
+          ng-attr-cx="{{p.x}}" ng-attr-cy="{{p.y}}"
+          class="knob" r="4px"
+          ng-class="{selected: p == selected.el}"></circle>
+  <text ng-if="tip" ng-attr-x="{{tip[0]+5}}" ng-attr-y="{{tip[1]+25}}">
+    {{selected.el.name}}
+  </text>
+</svg>
+</div>

@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <script src="../../reload.js"></script>
+    <%= angular %>
+    <%= livescript.prelude %>
+    <style>
+      circle.knob {
+        fill: rgba(0,0,0,0.5);
+        stroke-width: 1;
+        stroke: rgba(0,0,0,0.5);
+      }
+      circle.knob.hi {
+        stroke-width: 4px;
+        stroke: rgba(0,0,0,0.3);
+      }
+      input { width: 3em; }
+      input.letter { width: 1em; }
+      svg {
+        cursor: default; }
+      svg path.curve {
+        stroke: black;
+        fill: none;
+      }
+      .strut {
+        display: inline-block;
+        white-space: nowrap;
+        max-width: 1px; 
+        overflow: visible;
+      }
+    </style>
+    
+    <script src="document.ls.js"></script>
+    <script src="euclid.ls.js"></script>
+    <script src="path.ls.js"></script>
+
+<script type="text/ls">
+app = angular.module "app" []
+  ..controller \Ctrl ($scope) ->
+    doc = new LocalDocument('svgfont', Path)
+    doc.load!
+    $scope.e = e = new PathEditor doc.content
+    $scope.$watch do
+      -> e.mkpathd!
+      -> doc.save!
+</script>
+  </head>
+  <body ng-app="app"
+    ng-controller="Ctrl">
+    <form style="float: left">
+      <span ng-repeat="xy in e.points">
+        <input ng-model="xy.cmd"
+          class="letter"/>
+        <input ng-model="xy[0]"/>
+        <input ng-model="xy[1]"/>
+        <br/>
+      </span>
+      + 
+      <span ng-if="e.grab" class="strut">
+        ({{e.grab.ofs[0]}}, 
+         {{e.grab.ofs[1]}})</span>
+    </form>
+    <svg width="600" height="600"
+      ng-mousedown="e.mousedownEv($event)"
+      ng-mousemove="e.mousemoveEv($event)"
+      ng-dblclick="e.dblclickEv($event)"
+      ng-mouseleave="e.mouseleaveEv($event)">
+      <path ng-attr-d="{{e.mkpathd()}}"
+        class="curve"/>
+      <circle ng-attr-cx="{{xy[0]}}"
+        ng-attr-cy="{{xy[1]}}" r="3"
+        class="knob"
+        ng-class="{hi: e.in(xy,e.grab.pts)}"
+        ng-show="e.grab.pts.length > 0"
+        ng-repeat="xy in e.points"/>
+    </svg>
+  </body>
+  <%= livescript />
+</html>
