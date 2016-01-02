@@ -1,0 +1,16 @@
+
+class A extends T
+  (@name::string, @price::int) ->
+    
+a = new A
+
+class B
+  (@a::A) ->
+    @l = [@a]
+
+  get: -> @a
+  set: (@a::A) ->
+  
+    
+(b::B) ->
+  c = b.a.price

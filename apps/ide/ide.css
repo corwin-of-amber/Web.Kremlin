@@ -1,0 +1,66 @@
+body {
+  display: flex;
+}
+body > *:not(:first-child) { margin-left: 5px; }
+div#output { 
+  height: 100%;
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+div#output #console {
+  font-family: Menlo,Consolas,monospace;
+  font-size: 8pt;
+  white-space: pre;
+}
+div#output .pane {
+  overflow: auto;
+  flex-grow: 1;
+}
+div#output #error {
+  position: fixed;
+  bottom: 5px;
+  right: 5px;
+}
+div#output #tabs {
+  flex-shrink: 0;
+  cursor: default;
+}
+div#output #tabs a {
+  cursor: pointer;
+}
+div#output #tabs a.selected {
+  text-decoration: underline overline;
+  font-weight: bold;
+}
+div#editor {
+  box-sizing: border-box;
+  border: 1px solid black;
+  width: 50%;
+  flex-shrink: 0;
+  height: 100%; margin: 0;
+  display: inline-block;
+}
+div#symbols {
+  font-family: monospace;
+}
+div#symbols p {
+  margin: 0;
+  background: #EEE;
+}
+div#symbols table th {
+  text-align: left;
+}
+.CodeMirror {
+  font-family: Monaco;
+  font-size: 12px;
+  height: 100%;
+}
+.CodeMirror-matchingbracket {
+  -webkit-box-shadow: inset 0px 0px 2px 1px rgba(0,0,0,0.25);
+  color: firebrick !important;
+  text-shadow: 0 0 1px firebrick;
+}
+a.powered-by-firepad {
+    display: none;
+}

@@ -1,0 +1,8 @@
+{
+  "name": "ide",
+  "version": "0.0.1",
+  "main": "ide.html",
+  "window": {
+    "title": "My Tiny IDE"
+  }
+}

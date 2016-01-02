@@ -1,0 +1,54 @@
+<script src="../../reload.js"></script>
+<script>Reload.ignore(/^data\//);</script>
+
+<%= jquery />
+<%= jquery.ui />
+
+<%= codemirror />
+<%= codemirror.matchbrackets />
+<%= codemirror.livescript />
+
+<%= angular />
+<%= angular.ngstorage />
+
+<%= livescript.prelude />
+
+<script src="syntax/identifier.ls.js"></script>
+<script src="syntax/tree.ls.js"></script>
+<script src="syntax/unify.ls.js"></script>
+
+<script src="document.ls.js"></script>
+<script src="compiler.ls.js"></script>
+<script src="semantics/datalog.ls.js"></script>
+<script src="ide.ls.js"></script>
+
+<link type="text/css" rel="stylesheet" href="ide.css">
+
+<body ng-app="app">
+  <div id="editor"></div>
+  <div id="output" ng-controller="Ctrl" ng-init="$.tab = $.tab || 'ast'">
+    <div id="console" ng-show="$.tab=='ast'" class="pane">{{output.ast.toString()}}</div>
+    <div id="symbols" ng-show="$.tab=='sym'" class="pane">
+      <div ng-repeat="scope in output.symbols">
+        <p>{{scope.name}}</p>
+        <table class="symbol-table">
+          <tr ng-repeat="member in scope.members">
+            <th>{{member.name}}</th>
+            <td ng-if="member.type">{{output.unify.normalize(member.type).toString()}}</td>
+          </tr>
+        </table>
+      </div>
+    </div>
+    <div id="tuples" ng-show="$.tab=='tup'" class="pane">
+      <p ng-repeat="tup in output.db.tuples track by $index">
+        <span ng-repeat="atom in tup track by $index">{{atom}} </span>
+      </p>
+    </div>
+    <div id="tabs">
+      <a ng-click="$.tab='ast'" ng-class="{selected: $.tab=='ast'}">AST</a>
+      <a ng-click="$.tab='sym'" ng-class="{selected: $.tab=='sym'}">Symbols</a>
+      <a ng-click="$.tab='tup'" ng-class="{selected: $.tab=='tup'}">Tuples</a>
+    </div>
+    <div id="error">{{error}}</div>
+  </div>
+</body>
