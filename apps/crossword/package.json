@@ -1,0 +1,8 @@
+{
+  "name": "crossword",
+  "version": "0.0.1",
+  "main": "crossword.html",
+  "window": {
+    "title": "Crossword Puzzle"
+  }
+}
