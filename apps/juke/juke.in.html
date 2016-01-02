@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <script src="../../reload.js"></script>
 <%= jquery />
 <%= angular />
@@ -35,15 +36,19 @@ app = angular.module "app" []
       [t._id for t in viewed[index to]]
     
     $scope.reload-tracks = ->
-      $.get @base-url, (data) !->
-        <- $scope.$apply
-        $scope.tracks = data
-        $scope.albums = project data, 'album'
-        $scope.artists = project data, 'artist'
+      $.ajax do
+        type: \GET
+        contentType: "application/json;charset=utf-8"
+        url: @base-url
+        success: (data) !->
+          <- $scope.$apply
+          $scope.tracks = data
+          $scope.albums = project data, 'album'
+          $scope.artists = project data, 'artist'
     
     $scope.reload-tracks!
     
-    $scope.upload = -> upload @base-url, @~reload-tracks
+    $scope.start-upload = -> upload @base-url, @~reload-tracks
     
     $scope.$watch \volume (volume) ->
       max = $scope.max-volume
@@ -51,6 +56,9 @@ app = angular.module "app" []
       
   ..filter \project ->
     (tracks, column) -> project tracks, column
+    
+  ..filter \tracknum ->
+    (value) -> if value ~= 0 then "" else value
     
 uniq = (values) ->
   []
@@ -61,11 +69,13 @@ project = (tracks, column) ->
   uniq [..[column] for tracks]
   
 upload = (base-url, reload-cb) ->
+  fe = document.forms.upload.elements
   fd = new FormData
-  $.each $('#upload')[0].files, (i, file) ->
+  $.each fe.upload.files, (i, file) ->
     fd.append 'payload', file
+  qs = if fe.play.checked then "?play" else ""
   $.ajax do
-    url: "#{base-url}/upload"
+    url: "#{base-url}/upload#qs"
     type: \POST
     data: fd
     processData: false
@@ -73,8 +83,10 @@ upload = (base-url, reload-cb) ->
     xhr: ->
       xhr = $.ajax-settings.xhr!
       if xhr.upload
+        acc = 1
         xhr.upload.addEventListener \progress (e) ->
-          pc = Math.round 100 * e.loaded / e.total
+          pc = (Math.round 100 * acc * e.loaded / e.total) / acc
+          if pc < 1 then acc := 10
           $ \#percentage .text "#pc%"
       xhr
     success: (data) !->
@@ -111,7 +123,7 @@ upload = (base-url, reload-cb) ->
 
 <body ng-app="app"
   ng-controller="Ctrl">
-  <div><input ng-model="baseUrl">
+  <div><input ng-model="baseUrl" list="recentUrls">
   <button id="reload" ng-click="reloadTracks()">Reload</button>
   </div>
   <ul style="float: left">
@@ -151,16 +163,24 @@ upload = (base-url, reload-cb) ->
            | filter:cu(select):true as viewed"
         ng-click="play(slice(viewed, $index))">
       <td></td>
+      <td>{{track.track | tracknum}}</td>
       <td>{{track.title}}</td>
       <td>{{track._id}}</td>
     </tr>
   </table>
 
-  <form>
-  <input id="upload" type="file" multiple>
-    <input id="button" type="button" value="Upload" ng-click="upload()">
-    <span id="percentage"></span>
+  <form name="upload">
+    <input id="upload" type="file" multiple>
+    <input id="button" type="button" value="Upload" ng-click="startUpload()">
+    <span id="percentage"></span><br/>
+    <input type="checkbox" name="play">play</input>
   </form>
+  
+  <datalist id="recentUrls">
+    <option value="http://192.168.0.7:2222"></option>
+    <option value="http://192.168.0.8:2222"></option>
+    <option value="http://localhost:2222"></option>
+  </datalist>    
 </body>
 
 <%= livescript />

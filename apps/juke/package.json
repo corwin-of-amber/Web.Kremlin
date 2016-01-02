@@ -1,0 +1,8 @@
+{
+  "name": "juke",
+  "version": "0.0.1",
+  "main": "juke.html",
+  "window": {
+    "title": "juke"
+  }
+}
