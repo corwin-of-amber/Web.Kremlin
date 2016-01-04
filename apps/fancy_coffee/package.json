@@ -1,0 +1,9 @@
+{
+  "name": "fancy-coffee",
+  "version": "0.0.1",
+  "main": "fancy_coffee.html",
+  "window": {
+    "title": "fancy coffee",
+    "icon": "/Users/corwin/var/workspace/Web.RealTime/apps/fancy_coffee/Mug.png"
+  }
+}

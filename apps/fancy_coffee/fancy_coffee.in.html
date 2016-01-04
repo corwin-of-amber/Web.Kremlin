@@ -1,0 +1,44 @@
+<script src="../../reload.js"></script>
+<%= jquery />
+<script src="fancy_coffee.ls.js"></script>
+<script>
+  cl.on("notify", function(text, meta) {
+    var textEl = $("<span>").addClass('text').text(text);
+    var metaEl = $("<span>").addClass('meta').text(meta);
+    $('#chat').append($("<div>").addClass('message')
+                     .append(metaEl).append(textEl));
+  });
+</script>
+
+<style>
+  div.toolbox { 
+    position: fixed;
+    width: auto;
+    top: 0;
+    right: 0;
+    padding: 3px;
+  }
+  form { width: 100%; }
+  input { width: 100%; }
+</style>
+
+<div class="toolbox">
+<a id="clear">Clear</a>
+</div>
+
+<div id="chat"></div>
+ 
+<form><input name="msg"></form>
+
+<script type="text/ls">
+<- $
+$ '#clear' .click -> $ '#chat' .empty!
+$ 'form' .submit (ev) ->
+  ev.preventDefault!
+  cl.msg-room ev.target.msg.value
+  ev.target.reset!
+  false
+</script>
+
+<%= livescript />
+
