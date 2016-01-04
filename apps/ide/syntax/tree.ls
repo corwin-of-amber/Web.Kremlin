@@ -15,6 +15,8 @@ class Tree
   of: -> 
     new Tree(@root, @subtrees ++ arguments[to])
   
+  is-leaf: -> @subtrees.length == 0
+  
   equals: (other) ->
     @root.equals(other.root) &&
       @subtrees.length == other.subtrees.length &&

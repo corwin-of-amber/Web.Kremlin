@@ -63,17 +63,22 @@ compile-datalog = (program-text) ->
   
   term-to-atom = (id) -> "#{if id.root.kind == 'variable' then '$' else''}#{id.root.literal}"
   atom-to-term = (s) -> if (mo = s is /^\$(.*)/) then TV(mo.1) else TI(s)
-  subst-atom = (atom) -> term-to-atom ß.normalize atom-to-term(atom)
+  subst-atom = (atom) -> term-to-atom ß.normalize-var atom-to-term(atom)
   subst-in-tuples = (tuples) ->
     for tuple in db.tuples
       [subst-atom(atom) for atom in tuple]
-    
+  gen-eqs = ->
+    vars = ß.assn-vars!map T(_)
+    for v in vars when !(t = ß.normalize v).is-leaf!
+      ["=", term-to-atom(v), term-to-atom(t), ...t.subtrees.map term-to-atom]
+    # TODO deeper trees
+  
   rev = ß.rev
 
   loop
     dl.digest!
-    unifs = db.query-v "unify x_ y_"
-    unifs.for-each -> ß.unify atom-to-term(it.x_), atom-to-term(it.y_)
+    eqs = db.tuples.filter -> it.0 == "=" || it.0 == "unify"
+    eqs.for-each -> ß.unify atom-to-term(it.1), atom-to-term(it.2).of(...it[3 to].map atom-to-term)
     
     if rev > 100 then throw new Exception "fixpoint limit reached"
     
@@ -81,9 +86,25 @@ compile-datalog = (program-text) ->
     else
       rev = ß.rev
       db.tuples = subst-in-tuples db.tuples
+      db.add-all gen-eqs!
+  
+  get-pos = (idx) ->
+    xs = program-text.substring(0, idx).split('\n')
+    line: xs.length-1
+    ch: xs[*-1].length
+  
+  token-marks = do
+    r = /\$(\S+)/g
+    while (mo = r.exec program-text)?
+      from: get-pos mo.index
+      to: get-pos mo.index+mo.0.length
+      options:
+        className: "mark variable"
+        title: mo.1
   
   db: db
   unify: ß
+  marks: token-marks
   symbols: 
     * name: "$"
       members: ß.assn-vars!map -> {name: it.literal, type: T(it)}

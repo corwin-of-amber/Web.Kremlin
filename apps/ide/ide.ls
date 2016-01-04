@@ -31,6 +31,13 @@ angular.module 'app' <[ ngStorage ]>
 
       $timeout ->
         editor.setValue load!
+        
+      window <<< {editor}
+      
+    $scope.hilite = (title, flag) !->
+      jq = $ "[title=#title]"
+      cname = 'hilite'
+      if flag then jq.add-class cname else jq.remove-class cname
 
 
 create-editor = ->      
@@ -39,12 +46,19 @@ create-editor = ->
     matchBrackets: true
     mode: "livescript"
 
+mark-up = (marks) ->
+  for mark in editor.getAllMarks! when mark.className is /\bmark\b/
+    mark.clear!
+  for {from:from_, to, options} in marks
+    editor.markText from_, to, options
+    
 save = (text) -> doc.content.text = text ; doc.save!
 load = -> doc.load! ; doc.content.text
 
 compile = ->
   #compile-typed-livescript doc.content.text
   compile-datalog doc.content.text
+    if ..marks? then mark-up ..marks
     @ <<< .. # for debugging
 
 @ <<< {doc}

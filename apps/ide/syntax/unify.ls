@@ -40,6 +40,13 @@ class Unifier
   normalize: (x) ->
     x = @expand-shallow x
     new Tree(x.root, x.subtrees.map @~normalize)
+  
+  normalize-var: (v) ->
+    if v.root.kind == 'variable' && (w = @assn[v.root.literal])? \
+        && w.is-leaf!
+      @normalize-var w
+    else
+      v
 
 
 class CannotUnify

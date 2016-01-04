@@ -1,0 +1,19 @@
+. S this $T1
+. $T1 names $T2
+. $T2 length $T3
+. $T4 1 $T5
+. $T4 length $T6
+
+. S this A
+. A names $T4
+. string length int
+
+unify $T7 $T1
+
+= $T4 [] Array $T7
+
+= t_ [] Array e_
+  . t_ 1 e_ & . t_ length int
+
+. cls_ mem_ typ1_ & . cls_ mem_ typ2_
+  unify typ1_ typ2_

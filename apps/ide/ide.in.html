@@ -32,7 +32,9 @@
       <div ng-repeat="scope in output.symbols">
         <p>{{scope.name}}</p>
         <table class="symbol-table">
-          <tr ng-repeat="member in scope.members">
+          <tr ng-repeat="member in scope.members"
+              ng-mouseenter="hilite(member.name, 1)"
+              ng-mouseleave="hilite(member.name, 0)">
             <th>{{member.name}}</th>
             <td ng-if="member.type">{{output.unify.normalize(member.type).toString()}}</td>
           </tr>
