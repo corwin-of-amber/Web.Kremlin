@@ -23,7 +23,7 @@ angular.module 'app' <[ ngStorage ]>
           window.t = t
         catch e
           if e instanceof CompilationError
-            $scope <<< error: e.message
+            $scope <<< error: e.err.message
             return
           else throw e
 
@@ -35,7 +35,7 @@ angular.module 'app' <[ ngStorage ]>
       window <<< {editor}
       
     $scope.hilite = (title, flag) !->
-      jq = $ "[title=#title]"
+      jq = $ "[title='#title']"
       cname = 'hilite'
       if flag then jq.add-class cname else jq.remove-class cname
 
@@ -56,9 +56,9 @@ save = (text) -> doc.content.text = text ; doc.save!
 load = -> doc.load! ; doc.content.text
 
 compile = ->
-  #compile-typed-livescript doc.content.text
-  compile-datalog doc.content.text
-    if ..marks? then mark-up ..marks
+  compile-typed-livescript doc.content.text
+  #compile-datalog doc.content.text
+    mark-up ..marks || []
     @ <<< .. # for debugging
 
 @ <<< {doc}

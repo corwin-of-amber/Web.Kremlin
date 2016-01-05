@@ -18,9 +18,12 @@ div#output .pane {
   flex-grow: 1;
 }
 div#output #error {
-  position: fixed;
-  bottom: 5px;
-  right: 5px;
+  text-align: right;
+  border: 1px solid black;
+  margin: 1px;
+  font-size: smaller;
+  background: #FDD;
+  flex-shrink: 0;
 }
 div#output #tabs {
   flex-shrink: 0;
@@ -63,6 +66,9 @@ div#symbols table th {
 }
 .CodeMirror .mark {
   color: blue;
+}
+.CodeMirror .mark.class {
+  color: hotpink;
 }
 .CodeMirror .hilite {
   background: #CCC;

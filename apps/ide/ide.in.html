@@ -20,6 +20,7 @@
 <script src="document.ls.js"></script>
 <script src="compiler.ls.js"></script>
 <script src="semantics/datalog.ls.js"></script>
+<script src="semantics/bridge.ls.js"></script>
 <script src="ide.ls.js"></script>
 
 <link type="text/css" rel="stylesheet" href="ide.css">
@@ -36,7 +37,12 @@
               ng-mouseenter="hilite(member.name, 1)"
               ng-mouseleave="hilite(member.name, 0)">
             <th>{{member.name}}</th>
-            <td ng-if="member.type">{{output.unify.normalize(member.type).toString()}}</td>
+            <td ng-if="member.type">
+              <span ng-if="member.type.root.kind == 'variable'">
+                ({{member.type.toString()}})
+              </span>
+              {{output.unify.normalize(member.type).toString()}}
+            </td>
           </tr>
         </table>
       </div>
@@ -46,11 +52,11 @@
         <span ng-repeat="atom in tup track by $index">{{atom}} </span>
       </p>
     </div>
+    <div id="error" ng-if="error">{{error}}</div>
     <div id="tabs">
       <a ng-click="$.tab='ast'" ng-class="{selected: $.tab=='ast'}">AST</a>
       <a ng-click="$.tab='sym'" ng-class="{selected: $.tab=='sym'}">Symbols</a>
       <a ng-click="$.tab='tup'" ng-class="{selected: $.tab=='tup'}">Tuples</a>
     </div>
-    <div id="error">{{error}}</div>
   </div>
 </body>

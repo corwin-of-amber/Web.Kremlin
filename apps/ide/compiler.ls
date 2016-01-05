@@ -20,32 +20,62 @@ compile-typed-livescript = (program-text) ->
   scopes = [global-scope]
   ß = new Unifier
   
+  db = new TupleStore
+  bridge = new DatalogBridge new Datalog(db), ß
+  
+  bridge.dl.rules = bridge.dl.parse-rules """    
+= t_ [] Array e_
+  . t_ 1 e_ & . t_ length int
+
+. cls_ mem_ typ1_ & . cls_ mem_ typ2_
+  unify typ1_ typ2_
+"""
+
+  fresh.cnt = 0  # @@ just cause it's annoying
+
+  marks = []
+  
   if ast instanceof Block
     for e in ast.lines
       if e instanceof Class &&
          e.title instanceof Var
         clas = {name: e.title.value, members: []}
-        scopes.push clas
+          scopes.push ..
+        marks.push mark-for-node(e.title, {title: clas.name, className: "mark class"})
         global-scope.members.push {name: clas.name, type: TI("class"), scope: clas}
-        console.log e.title.value
+        #console.log e.title.value
         if e.fun.body instanceof Block
           for m in e.fun.body.lines
             if m instanceof Fun
               clas.members.push {name: "->"}
-              console.log "->"
+              #console.log "->"
               for member-name, member-node of collect-this m.params ++ [m.body]
                 clas.members.push {name: member-name, type: type-of-node(member-node)}
-              fn-scope = [{name: "this", type: TI(clas.name, 'class')}]
-              digest ß, collect-types m.params ++ [m.body], fn-scope, global-scope.members
+              fn-scope = {name: "->", type: fresh("S")}
+              bridge.add ['.', fn-scope.type, TI("this"), TI(clas.name, 'class')]
+              collect-types m.params ++ [m.body], fn-scope, global-scope
+                bridge.add-all ..
             if m instanceof Obj
               for mem in m.items
                 clas.members.push {name: mem.key.name}
-                console.log mem.key.name
+                #console.log mem.key.name
+      else if e instanceof Fun
+        fn-scope = {name: "->", members: [], type: fresh("S")}
+          scopes.push ..
+        for var-name, var-node of collect-vars e.params ++ [e.body]
+          fn-scope.members.push {name: var-name, type: type-of-node(var-node)}
+          bridge.add ['.', fn-scope.type, TI(var-name), type-of-node(var-node)]
+          marks.push mark-for-node(var-node, {title: var-name, className: "mark variable"})
+        collect-types e.params ++ [e.body], fn-scope, global-scope
+          bridge.add-all ..
                 
+  bridge.digest!
+  
   ast: ast
+  db: db
+  marks: marks
   symbols: scopes
   unify: ß
-
 
 
 compile-datalog = (program-text) ->
@@ -60,33 +90,9 @@ compile-datalog = (program-text) ->
   dl.rules = program-rules
 
   ß = new Unifier
-  
-  term-to-atom = (id) -> "#{if id.root.kind == 'variable' then '$' else''}#{id.root.literal}"
-  atom-to-term = (s) -> if (mo = s is /^\$(.*)/) then TV(mo.1) else TI(s)
-  subst-atom = (atom) -> term-to-atom ß.normalize-var atom-to-term(atom)
-  subst-in-tuples = (tuples) ->
-    for tuple in db.tuples
-      [subst-atom(atom) for atom in tuple]
-  gen-eqs = ->
-    vars = ß.assn-vars!map T(_)
-    for v in vars when !(t = ß.normalize v).is-leaf!
-      ["=", term-to-atom(v), term-to-atom(t), ...t.subtrees.map term-to-atom]
-    # TODO deeper trees
-  
-  rev = ß.rev
-
-  loop
-    dl.digest!
-    eqs = db.tuples.filter -> it.0 == "=" || it.0 == "unify"
-    eqs.for-each -> ß.unify atom-to-term(it.1), atom-to-term(it.2).of(...it[3 to].map atom-to-term)
     
-    if rev > 100 then throw new Exception "fixpoint limit reached"
-    
-    if rev == ß.rev then break
-    else
-      rev = ß.rev
-      db.tuples = subst-in-tuples db.tuples
-      db.add-all gen-eqs!
+  bridge = new DatalogBridge(dl, ß)
+  bridge.digest!
   
   get-pos = (idx) ->
     xs = program-text.substring(0, idx).split('\n')
@@ -94,20 +100,23 @@ compile-datalog = (program-text) ->
     ch: xs[*-1].length
   
   token-marks = do
-    r = /\$(\S+)/g
+    r = /(^|\s)\$(\S+)(?!\S)/g
     while (mo = r.exec program-text)?
-      from: get-pos mo.index
+      from: get-pos mo.index+mo.1.length
       to: get-pos mo.index+mo.0.length
       options:
         className: "mark variable"
-        title: mo.1
+        title: mo.2
   
   db: db
   unify: ß
   marks: token-marks
   symbols: 
     * name: "$"
-      members: ß.assn-vars!map -> {name: it.literal, type: T(it)}
+      members: ß.assn-vars!map ->
+        name: it.literal
+        type: T(it)
+        at: it.literal
     ...
 
   
@@ -119,15 +128,20 @@ foreach-node = (ast, fn, xscope) ->
     ast.traverse-children fn, xscope
   
   
-collect-this = (ast) ->
-  {}
-    foreach-node ast, (node) !->
-      if node instanceof Chain && node.head instanceof Literal &&
-         node.head.value == 'this'
-        memacc = node.tails[0]
-        if memacc instanceof Index && memacc.symbol == '.' && memacc.key instanceof Key
-          name = memacc.key.name
-          ..[name] = memacc if name not of ..
+collect-this = (ast) -> {}
+  foreach-node ast, (node) !->
+    if node instanceof Chain && node.head instanceof Literal &&
+       node.head.value == 'this'
+      memacc = node.tails[0]
+      if memacc instanceof Index && memacc.symbol == '.' && memacc.key instanceof Key
+        name = memacc.key.name
+        ..[name] = memacc if name not of ..
+
+collect-vars = (ast) -> {}
+  foreach-node ast, (node) !->
+    if node instanceof Var
+      name = node.value
+      ..[name] = node if name not of ..
 
 collect-types = (ast, local-scope, global-scope) -> []
   foreach-node ast, (node) !->
@@ -135,25 +149,28 @@ collect-types = (ast, local-scope, global-scope) -> []
       is-typed = false
       for el, i in node.tails
         # . / ::
-        if el instanceof Index && el.symbol == '.' && el.key instanceof Key
+        if el instanceof Index && el.symbol == '.'
           va = if i > 0 then node.tails[i-1] else node.head
-          if el.key.name == 'prototype'
-            # t::type
-            typ = parse-type node.tails[i+1 to]
-            ..push ['unify', type-of-node(va), typ],
-                   ['unify', type-of-node(node), typ]
-            is-typed = false ; break
-          else
-            if va instanceof Literal && va.value == 'this' && (vthis = lookup(local-scope, 'this'))? && vthis.type? && vthis.type.root.kind == 'class'
-              # @member
-              clas = lookup(global-scope, vthis.type.root.literal)
-              if clas.scope? && (vclas = lookup(clas.scope.members, el.key.name))? && vclas.type?
-                ..push ['unify', type-of-node(el), vclas.type]
+          if el.key instanceof Key
+            if el.key.name == 'prototype'
+              # t::type
+              typ = parse-type node.tails[i+1 to]
+              ..push ['unify', type-of-node(va), typ],
+                     ['unify', type-of-node(node), typ]
+              is-typed = true ; break
+            else
+              ..push ['.', type-of-node(va), TI(el.key.name), type-of-node(el)]
+          else if el.key instanceof Literal
+            key = -> if it is /^\d+$/ then +it else it
+            ..push ['.', type-of-node(va), TI(key el.key.value), type-of-node(el)]
       if !is-typed
         ..push ['unify', type-of-node(node), type-of-node(node.tails[*-1])]
     # this
-    if node instanceof Literal && node.value == 'this' && (vthis = lookup(local-scope, 'this'))? && vthis.type?
-      ..push ['unify', type-of-node(node), vthis.type]
+    if node instanceof Literal && node.value == 'this' # && (vthis = lookup(local-scope, 'this'))? && vthis.type?
+      ..push ['.', local-scope.type, TI(node.value), type-of-node(node)]
+    # Var
+    if node instanceof Var
+      ..push ['.', local-scope.type, TI(node.value), type-of-node(node)]
     # lhs = rhs
     if node instanceof Assign
       ..push ['unify', type-of-node(node.left), type-of-node(node.right)]
@@ -174,8 +191,15 @@ parse-type = (elements) ->
 type-of-node = (ast) ->
   ast.type ? (ast.type = fresh())
 
+mark-for-node = (ast, options={}) ->
+  from: {line: ast.first_line-1, ch: ast.first_column}
+  to: 
+    if ast.value? then {line: ast.first_line-1, ch: ast.first_column + ast.value.length}
+    else {line: ast.last_line-1, ch: ast.last_column}
+  options: {className: "mark variable"} <<< options
+  
 lookup = (scope, name) ->
-  for member in scope
+  for member in scope.members
     if member.name == name then return member
   
 digest = (ß, type-assignments) ->

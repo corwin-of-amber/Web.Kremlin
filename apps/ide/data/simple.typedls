@@ -1,12 +1,13 @@
 
 class A extends T
-  (@name::string, @price::int) ->
+  (@name::string, @price::float) ->
     
 a = new A
 
 class B
   (@a::A) ->
     @l = [@a]
+    @o = @l.length
 
   get: -> @a
   set: (@a::A) ->
