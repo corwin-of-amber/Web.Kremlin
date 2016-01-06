@@ -1,3 +1,6 @@
+Fiber = require \fibers
+Future = require 'fibers/future'
+Function.prototype.future = Future.future  # nwjs thing
 
 
 class TextDocument
@@ -16,18 +19,26 @@ angular.module 'app' <[ ngStorage ]>
 
     $ ->
       editor = create-editor!
-      editor.on \change -> $scope.$apply ->
+      work = new Work
+      editor.on \change -> 
         save editor.getValue!
-        try
-          t = compile!
-          window.t = t
-        catch e
-          if e instanceof CompilationError
-            $scope <<< error: e.err.message
-            return
-          else throw e
+        future = Future.task work.start ->
+          try
+            t = compile!
+          catch e
+            if e instanceof CompilationError
+              return {error: e.err.message}
+            else throw e
 
-        $scope <<< output: t, error: undefined
+          {output: t, error: undefined}
+
+        future.resolve (err, val) ->
+          if err
+            if err.message != "This Fiber is a zombie"  # ARRG...
+              throw err
+          else
+            $scope.$apply -> $scope <<< val
+
 
       $timeout ->
         editor.setValue load!
@@ -61,4 +72,18 @@ compile = ->
     mark-up ..marks || []
     @ <<< .. # for debugging
 
+class Work
+  -> @workers = []
+  start: (fn) -> @reset! ; @enqueue fn
+  enqueue: (fn) -> ~>
+    @workers.push Fiber.current
+    try
+      fn!
+    finally
+      if (idx = @workers.indexOf Fiber.current) >= 0
+        @workers.splice idx, 1
+  reset: ->
+    while (fiber = @workers.pop!)?
+      fiber.reset!
+    
 @ <<< {doc}

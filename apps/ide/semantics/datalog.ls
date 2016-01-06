@@ -1,8 +1,20 @@
-
+Fiber = require \fibers
 {zip, minimum-by, partition, concat, concat-map} = require 'prelude-ls'
 
 
 
+rest = ->
+  c = Fiber.current
+  if c?
+    to = setTimeout((-> c.run!), 0)
+    #process.nextTick -> c.run!
+    try
+      Fiber.yield!
+    catch e
+      clearTimeout to    # gotta unwind
+      throw e
+  
+  
 class TupleStore
 
   ->
@@ -122,6 +134,9 @@ class Datalog
       rhs: lines.filter (== /^\s/) |> concat-map @db~parse-tuples
     
   process: (rule) ->
+    # EXPERIMENT
+    rest!
+    # /EXPERIMENT
     if rule.map?
       rule.map @~process
     else
