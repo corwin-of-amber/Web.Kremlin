@@ -35,6 +35,7 @@ angular.module 'app' <[ ngStorage ]>
         future.resolve (err, val) ->
           if err
             if err.message != "This Fiber is a zombie"  # ARRG...
+              console.error err.stack
               throw err
           else
             $scope.$apply -> $scope <<< val
@@ -72,6 +73,7 @@ compile = ->
     mark-up ..marks || []
     @ <<< .. # for debugging
 
+
 class Work
   -> @workers = []
   start: (fn) -> @reset! ; @enqueue fn
@@ -85,5 +87,21 @@ class Work
   reset: ->
     while (fiber = @workers.pop!)?
       fiber.reset!
+      
+  @_recent = 0
+  @rest = ->
+    new Date
+      if .. - Work._recent < 10 then return
+      Work._recent = ..
+    c = Fiber.current
+    if c?
+      to = setTimeout((-> c.run!), 0)
+      #process.nextTick -> c.run!
+      try
+        Fiber.yield!
+      catch e
+        clearTimeout to    # gotta unwind
+        throw e
+  
     
-@ <<< {doc}
+@ <<< {doc, Work}

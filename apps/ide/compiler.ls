@@ -23,6 +23,10 @@ compile-typed-livescript = (program-text) ->
   db = new TupleStore
   bridge = new DatalogBridge new Datalog(db), ß
   
+  bridge.dl.process = ->
+    Work.rest!
+    Datalog::process.apply @, &
+  
   bridge.dl.rules = bridge.dl.parse-rules """    
 = t_ [] Array e_
   . t_ 1 e_ & . t_ length int
