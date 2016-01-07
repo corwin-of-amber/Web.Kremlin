@@ -3,7 +3,9 @@
 class DatalogBridge
   (@dl, @unify) -> @db = @dl.db
 
-  term-to-atom: (id) -> if id.root.kind == 'variable' then "$#{id.root.literal}" else id.root.literal
+  term-to-atom: (id) -> 
+    if ! id.is-leaf then throw new Error "I am stupid"
+    if id.root.kind == 'variable' then "$#{id.root.literal}" else id.root.literal
   atom-to-term: (s) -> if (mo = s is /^\$(.*)/) then TV(mo.1) else TI(s)
   
   subst-atom: (atom) -> @term-to-atom @unify.normalize-var @atom-to-term(atom)
@@ -21,13 +23,18 @@ class DatalogBridge
     []
       for tup in tuples-with-terms
         if tup.0 == 'unify'
-          ..push ['=', ...(tup[1 to] ++ tup[2].subtrees).map @~term-to-atom]
-        else if tup.0 == '.'
-          ..push ['.', ... tup[1 to].map @~term-to-atom]
+          if tup.1.is-leaf! && tup.2.subtrees.every (.is-leaf!)
+            ..push ['=', ...(tup[1 to] ++ tup[2].subtrees).map @~term-to-atom]
+        else if tup.0 == '.' || tup.0 == '.[]'
+          if tup[1 to].every (.is-leaf!)
+            ..push [tup.0, ... tup[1 to].map @~term-to-atom]
+        else
+          ...
   gen-eqs: ->
     vars = @unify.assn-vars!map T(_)
     for v in vars when !(t = @unify.normalize v).is-leaf!
-      ["=", @term-to-atom(v), @term-to-atom(t), ...t.subtrees.map @~term-to-atom]
+      if t.subtrees.every (.is-leaf!)
+        ["=", @term-to-atom(v), @term-to-atom(t), ...t.subtrees.map @~term-to-atom]
     # TODO deeper trees
   
   is-trivial: (tup) ->

@@ -22,7 +22,7 @@ angular.module 'app' <[ ngStorage ]>
       work = new Work
       editor.on \change -> 
         save editor.getValue!
-        future = Future.task work.start ->
+        Future.task work.start ->
           try
             t = compile!
           catch e
@@ -32,10 +32,10 @@ angular.module 'app' <[ ngStorage ]>
 
           {output: t, error: undefined}
 
-        future.resolve (err, val) ->
+        .resolve (err, val) ->
           if err
-            if err.message != "This Fiber is a zombie"  # ARRG...
-              console.error err.stack
+            if !(err instanceof Work.Purged)
+              console.error err.stack  # stack is lost on rethrow :(
               throw err
           else
             $scope.$apply -> $scope <<< val
@@ -75,33 +75,35 @@ compile = ->
 
 
 class Work
-  -> @workers = []
+  -> @current = void
   start: (fn) -> @reset! ; @enqueue fn
   enqueue: (fn) -> ~>
-    @workers.push Fiber.current
+    @current = Fiber.current
+    @current.work = @  # cyclic ref... will be broken when fiber exits or gets replaced
     try
       fn!
     finally
-      if (idx = @workers.indexOf Fiber.current) >= 0
-        @workers.splice idx, 1
+      if @_current == Fiber.current
+        @_current = void
   reset: ->
-    while (fiber = @workers.pop!)?
-      fiber.reset!
+    @_current = void
       
   @_recent = 0
   @rest = ->
     new Date
-      if .. - Work._recent < 10 then return
-      Work._recent = ..
+      if .. - @_recent < 10 then return
+      @_recent = ..
     c = Fiber.current
     if c?
+      if c.work? && c != c.work.current then throw new @Purged
       to = setTimeout((-> c.run!), 0)
-      #process.nextTick -> c.run!
       try
         Fiber.yield!
       catch e
         clearTimeout to    # gotta unwind
         throw e
-  
+
+  class @Purged
+
     
 @ <<< {doc, Work}

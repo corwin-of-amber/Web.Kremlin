@@ -9,8 +9,10 @@ class Unifier
     
   # x,y are Trees of Identifiers
   unify: (x, y) !->
+    #console.log "#x  ~  #y"
     x = @expand-shallow x
     y = @expand-shallow y
+    #console.log "#x  ~  #y"
     if @is-freevar(x)
       console.assert x.subtrees.length == 0
       if not x.equals(y)

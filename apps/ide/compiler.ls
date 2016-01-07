@@ -1,14 +1,20 @@
 LiveScript = require 'LiveScript'
 
-{Block,Class,Fun,Var,Obj,Prop,Literal,Chain,Index,Key,Assign,Arr} = LiveScript.ast
+{Block,Class,Fun,Var,Obj,Prop,Literal,Chain,
+Index,Key,Assign,Arr,Parens,Call} = LiveScript.ast
 
 
 class CompilationError
   (@err) ->
 
 
-fresh = (name="T") -> TI("#{name}_#{fresh.cnt++}", 'variable')
+fresh = (name="T") -> TI("#{name}#{subscript-decimal fresh.cnt++}", 'variable')
 fresh.cnt = 0
+
+subscript-decimal = (index) -> 
+  (for c in "#index" then subscript0_9[c]).join ''
+subscript0_9 = "₀₁₂₃₄₅₆₇₈₉"
+
 
 compile-typed-livescript = (program-text) ->
   try
@@ -16,8 +22,6 @@ compile-typed-livescript = (program-text) ->
   catch e
     throw new CompilationError(e)
   
-  global-scope = {name: "global", members: []}
-  scopes = [global-scope]
   ß = new Unifier
   
   db = new TupleStore
@@ -29,14 +33,19 @@ compile-typed-livescript = (program-text) ->
   
   bridge.dl.rules = bridge.dl.parse-rules """    
 = t_ [] Array e_
-  . t_ 1 e_ & . t_ length int
+  .[] t_ int e_ & . t_ length int
 
+.[] cls_ idx_ typ1_ & .[] cls_ idx_ typ2_
+  unify typ1_ typ2_
+  
 . cls_ mem_ typ1_ & . cls_ mem_ typ2_
   unify typ1_ typ2_
 """
 
   fresh.cnt = 0  # @@ just cause it's annoying
 
+  global-scope = {name: "global", members: [], type: TI("<global>")}
+  scopes = [global-scope]
   marks = []
   
   if ast instanceof Block
@@ -59,10 +68,17 @@ compile-typed-livescript = (program-text) ->
               bridge.add ['.', fn-scope.type, TI("this"), TI(clas.name, 'class')]
               collect-types m.params ++ [m.body], fn-scope, global-scope
                 bridge.add-all ..
-            if m instanceof Obj
+            else if m instanceof Obj
               for mem in m.items
-                clas.members.push {name: mem.key.name}
-                #console.log mem.key.name
+                typ = type-of-node(mem)
+                clas.members.push {name: mem.key.name, type: typ}
+                bridge.add ['.', TI(clas.name, 'class'), TI(mem.key.name), typ]
+                if mem.val instanceof Fun
+                  m = mem.val ; params-vec = fresh("P")
+                  ß.unify typ, TI("->").of(TI(clas.name, 'class'), params-vec, type-of-node(mem.val.body))
+                  ß.unify params-vec, TI("()").of(...m.params.map type-of-node)
+                  collect-types m.params ++ [m.body], fn-scope, global-scope
+                    bridge.add-all ..
       else if e instanceof Fun
         fn-scope = {name: "->", members: [], type: fresh("S")}
           scopes.push ..
@@ -72,8 +88,12 @@ compile-typed-livescript = (program-text) ->
           marks.push mark-for-node(var-node, {title: var-name, className: "mark variable"})
         collect-types e.params ++ [e.body], fn-scope, global-scope
           bridge.add-all ..
-                
-  bridge.digest!
+            
+  try
+    bridge.digest!
+  catch e
+    if e instanceof Work.Purged then throw e
+    console.error e
   
   ast: ast
   db: db
@@ -152,9 +172,9 @@ collect-types = (ast, local-scope, global-scope) -> []
     if node instanceof Chain
       is-typed = false
       for el, i in node.tails
+        va = if i > 0 then node.tails[i-1] else node.head
         # . / ::
         if el instanceof Index && el.symbol == '.'
-          va = if i > 0 then node.tails[i-1] else node.head
           if el.key instanceof Key
             if el.key.name == 'prototype'
               # t::type
@@ -165,10 +185,24 @@ collect-types = (ast, local-scope, global-scope) -> []
             else
               ..push ['.', type-of-node(va), TI(el.key.name), type-of-node(el)]
           else if el.key instanceof Literal
-            key = -> if it is /^\d+$/ then +it else it
-            ..push ['.', type-of-node(va), TI(key el.key.value), type-of-node(el)]
+            ..push ['.[]', type-of-node(va), type-of-node(el.key), type-of-node(el)]
+          else if el.key instanceof Parens
+            ..push ['.[]', type-of-node(va), type-of-node(el.key.it), type-of-node(el)]
+        # () / !
+        else if el instanceof Call
+          this-type = 
+            if va instanceof Index && i > 0
+              type-of-node(if i > 1 then node.tails[i-2] else node.head)
+            else global-scope.type
+          fn-type = TI('->').of(this-type, fresh(), type-of-node(el))
+          ..push ['unify', type-of-node(va), fn-type]
       if !is-typed
         ..push ['unify', type-of-node(node), type-of-node(node.tails[*-1])]
+    # block
+    if node instanceof Block
+      ..push ['unify', type-of-node(node),
+        if node.lines.length == 0 then TI('unit')
+        else type-of-node(node.lines[*-1])]
     # this
     if node instanceof Literal && node.value == 'this' # && (vthis = lookup(local-scope, 'this'))? && vthis.type?
       ..push ['.', local-scope.type, TI(node.value), type-of-node(node)]
@@ -183,6 +217,9 @@ collect-types = (ast, local-scope, global-scope) -> []
       for item in node.items
         arr-type = TI('[]').of(TI("Array", 'class'), type-of-node(item))
         ..push ['unify', type-of-node(node), arr-type]
+    # number
+    if node instanceof Literal && node.value is /^\d+$/
+      ..push ['unify', type-of-node(node), TI('int')]
 
             
             
@@ -206,10 +243,6 @@ lookup = (scope, name) ->
   for member in scope.members
     if member.name == name then return member
   
-digest = (ß, type-assignments) ->
-  for cmd in type-assignments
-    if cmd[0] == 'unify'
-      ß.unify cmd[1], cmd[2]
 
 
 @ <<< {compile-typed-livescript, compile-datalog, CompilationError}
