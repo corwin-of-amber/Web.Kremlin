@@ -1,0 +1,22 @@
+<h1 class="section">Core Language</h1>
+
+<p>
+The core sketch language is a simple imperative language that borrows most of its syntax from Java and C.
+</p>
+
+<h2 class="subsection">Primitive Types</h2>
+
+<p>
+The sketch language contains five primitive types, <code class="code">bit</code>, <code class="code">int</code>, <code class="code">char</code>, <code class="code">double</code> and <code class="code">float</code>. There is a subtyping relation between three of them:
+<code class="code">bit <span class="math spaced symbol" nspaces=6 latex="\sqsubseteq">⊑</span> char <span class="math spaced symbol" nspaces=6 latex="\sqsubseteq">⊑</span> int</code>, so bit variables can be used wherever a character or integer is required. 
+<code class="code">float</code> and <code class="code">double</code> are completely interchangeable, but there is no subtyping relationship between them and the other types, so for example, you cannot use <span class="math">1</span> in place of <span class="math">1.0</span>, or <span class="math">0</span> in place of <span class="math">0.0</span>.
+</p>
+
+<p class="indent">
+  There are two <code class="code">bit</code> constants, <code class="code">0</code>, and <code class="code">1</code>. Bits are also used to represent Booleans; the constants <code class="code">false</code> and <code class="code">true</code> are syntactic sugar for <code class="code">0</code> and <code class="code">1</code> respectively. In the case of characters, you can use the standard C syntax to represent character constants. 
+</p>
+
+<p class="paragraph">
+  <a class="parameter title">Modeling floating point</a>
+  Floating point values (either <code class="code">float</code> or <code class="code">double</code>) are not handled natively by the synthesizer, so they have to be modeled using other mechanisms. The sketch synthesizer currently supports three different encodings for floating point values, which can be controlled by the flag <code class="code">--fe-fpencoding</code>.
+</p>

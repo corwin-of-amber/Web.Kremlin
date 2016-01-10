@@ -1,0 +1,20 @@
+#document {
+  font-family: "CMU Serif";
+  padding: 0 .5cm;
+}
+code {
+  font-family: "CMU Typewriter Text";
+}
+p {
+  text-align: justify;
+}
+p.indent::before {
+  display: inline-block; 
+  content: " ";
+  width: .5em;
+}
+p.paragraph > a.title {
+  font-weight: bold;
+  font-family: "CMU Serif Extra";
+  margin-right: 1em;
+}
