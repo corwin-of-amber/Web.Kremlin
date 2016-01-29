@@ -1,9 +1,12 @@
 #document {
   font-family: "CMU Serif";
+  font-size: 12.5pt;
   padding: 0 .5cm;
+  text-align: justify;
 }
-code {
-  font-family: "CMU Typewriter Text";
+h1, h2 {
+  font-family: "CMU Serif Extra";
+  font-weight: bold;
 }
 p {
   text-align: justify;
@@ -14,7 +17,57 @@ p.indent::before {
   width: .5em;
 }
 p.paragraph > a.title {
-  font-weight: bold;
   font-family: "CMU Serif Extra";
+  font-weight: bold;
   margin-right: 1em;
+}
+code, div.code {
+  font-family: "CMU Typewriter Text";
+  font-style: normal;
+}
+code.kw {
+  font-weight: bold;
+}
+div.code {
+  white-space: pre;
+}
+.math {
+  font-family: "CMU Serif";
+  font-style: italic;
+}
+.math.rm, .math .rm { font-style: normal; }
+dd.flagdoc {
+  text-align: justify;  /* has no effect? */
+}
+dl.flagdoc::before {
+  content: "Flag ";
+  font-family: "CMU Serif Bold";
+  font-weight: bold;
+}
+dl.flagdoc > dt::before {
+  content: "--";
+}
+dl.flagdoc > dt {
+  display: inline;
+  font-family: "CMU Typewriter Text";
+  font-weight: bold;
+}
+dl.flagdoc > dd {
+  margin-left: 1em;
+  display: inline;
+  font-style: italic;
+}
+div.example > p:first-child::before {
+  content: "Example " attr(counter-value) ".";
+  font-family: "CMU Serif Extra";
+  font-weight: bold;
+  font-style: normal;
+  margin-right: .5em;
+}
+div.example {
+  font-style: italic;
+}
+.Sketch::before {
+  content: "Sketch";
+  font-variant: small-caps;
 }
