@@ -104,6 +104,7 @@ compile = (reload) ->
     opts = {export: "grammar"}
     inputs = Files.find-all "*.ne" .filter Files.Hash~is-dirty
     nearley = require 'nearley'
+    if typeof(window) != 'undefined' then window.nearley = nearley   # @@@ this hack is needed if the main file does not <script src="nearley">
     [Compile, parserGrammar, generate] = [require('nearley/lib/compile'), require('nearley/lib/nearley-language-bootstrapped'), require('nearley/lib/generate')]
     for input in inputs
       output = input + ".js"
