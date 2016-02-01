@@ -3,14 +3,18 @@
   "version": "0.0.1",
   "main": "index.html",
   "dependencies": {
-    "nw": "^0.12.2",
-    "underscore": "*",
-    "coffee-script": "*",
-    "livescript": "*",
-    "glob": "^5.0.9",
     "chokidar": "^1.0.5",
-
+    "coffee-script": "*",
+    "glob": "^5.0.9",
     "jison": "~0.4.15",
-    "nearley": "~1.8.0"
+    "livescript": "*",
+    "nearley": "^2.2.0",
+    "nw": "^0.12.2",
+    "prelude-ls": "^1.1.2",
+    "underscore": "*"
+  },
+  "scripts": {
+    "prepublish": "node reload.js",
+    "start": "./node_modules/.bin/nw .&"
   }
 }

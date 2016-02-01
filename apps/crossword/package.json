@@ -4,5 +4,8 @@
   "main": "crossword.html",
   "window": {
     "title": "Crossword Puzzle"
+  },
+  "scripts": {
+    "start": "./crossword.app/Contents/MacOS/nwjs .&"
   }
 }

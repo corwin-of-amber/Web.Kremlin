@@ -5,5 +5,8 @@
   "window": {
     "title": "fancy coffee",
     "icon": "/Users/corwin/var/workspace/Web.RealTime/apps/fancy_coffee/Mug.png"
+  },
+  "scripts": {
+    "start": "./fancy_coffee.app/Contents/MacOS/nwjs .&"
   }
 }

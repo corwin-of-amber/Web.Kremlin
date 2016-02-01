@@ -4,5 +4,8 @@
   "main": "ide.html",
   "window": {
     "title": "My Tiny IDE"
+  },
+  "scripts": {
+    "start": "ide.app/Contents/MacOS/nwjs .&"
   }
 }

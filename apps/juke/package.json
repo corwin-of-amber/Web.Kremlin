@@ -4,5 +4,8 @@
   "main": "juke.html",
   "window": {
     "title": "juke"
+  },
+  "scripts": {
+    "start": "./juke.app/Contents/MacOS/nwjs .&"
   }
 }
