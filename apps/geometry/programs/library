@@ -1,0 +1,10 @@
+A_ on l_ & segment l_ B_ C_ & point A x_ y_ & point B_ x0_ y0_ & point C_ x1_ y1_
+  emit "([x_] - [x0_]) * ([y1_] - [y0_]) == ([y_] - [y0_]) * ([x1_] - [x0_])"
+A_ on ◯_ & point A_ x_ y_ & circle ◯_ O_ r_ & point O_ x0_ y0_
+  emit "(([x_] - [x0_])**2 + ([y_] - [y0_])**2) == [r_]**2"
+kiss ◯1_ ◯2_ & circle ◯1_ O1_ r1_ & circle ◯2_ O2_ r2_ & point O1_ x1_ y1_ & point O2_ x2_ y2_
+  emit "([x1_] - [x2_])**2 + ([y1_] - [y2_])**2 == ([r1_]+[r2_])**2"
+point _ x_ _
+  x-data x_
+vrule x_
+  x-data x_

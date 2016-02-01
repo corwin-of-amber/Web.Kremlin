@@ -1,0 +1,35 @@
+hrule y.0 & emit "[y.0] == 150"
+hrule y.1 & emit "[y.1] == 220"
+emit "[m.0] == avg(([y.0], [y.1]))"
+emit "? [m] == 320"
+emit "? [V] == 100**2"
+
+emit "[d] > 0"
+emit "[e] == [d]*.75"
+
+#segment diag SW NE
+#circle ◯1 A d
+#point A A.x y.0
+#point B B.x B.y
+#circle ◯2 B d
+#point C x.3 y.1
+#C on ◯1 & C on ◯2
+#A on diag
+#kiss ◯1 ◯2
+
+. x _ x_
+  vrule x_
+. p _ p_
+  vrule p_
+. p i_ a_ & s i_ j_ & . x j_ b_
+  emit "[b_] - [a_] == [e]"
+. x i_ a_ & . p i_ b_
+  emit "[b_] - [a_] == [d]"
+. x i_ a_ & . p i_ b_ & . box i_ r_
+  iso-rectangle r_ a_ y.0 b_ y.1
+. box i_ r_ & . r_ mw mw_ & . x i_ x_
+  point mw_ x_ m.0
+. box i_ r_ & . r_ me me_ & . p i_ x_
+  point me_ x_ m.0
+. box i_ boxi_ & . box j_ boxj_ & s i_ j_ & . boxi_ me mei_ & . boxj_ mw mwj_
+  segment z mei_ mwj_
