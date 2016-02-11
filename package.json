@@ -9,12 +9,12 @@
     "jison": "~0.4.15",
     "livescript": "*",
     "nearley": "^2.2.0",
-    "nw": "^0.12.2",
     "prelude-ls": "^1.1.2",
+    "requireg": "^0.1.5",
     "underscore": "*"
   },
   "scripts": {
     "prepublish": "node reload.js",
-    "start": "./node_modules/.bin/nw .&"
+    "start": "nw .&"
   }
 }

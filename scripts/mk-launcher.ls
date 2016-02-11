@@ -3,11 +3,12 @@ fs = require \fs
 path = require \path
 child_process = require \child_process
 mkdirp = require \mkdirp
+requireg = require \requireg
 
 app-dir = '.'
 app-name = path.basename fs.realpathSync app-dir
 
-nwjs-root = path.dirname require.resolve 'nw'
+nwjs-root = path.dirname requireg.resolve 'nw'
 
 app-contents-dir = path.join app-dir, "#{app-name}.app/Contents"
 nwjs-contents-dir = path.join nwjs-root, 'nwjs/nwjs.app/Contents'
