@@ -1,7 +1,7 @@
 LiveScript = require 'LiveScript'
 
 {Block,Class,Fun,Var,Obj,Prop,Literal,Chain,
-Index,Key,Assign,Arr,Parens,Call} = LiveScript.ast
+Index,Key,Assign,Arr,Parens,Call,Unary} = LiveScript.ast
 
 
 class CompilationError
@@ -46,6 +46,8 @@ compile-typed-livescript = (program-text) ->
 
   global-scope = {name: "global", members: [], type: TI("<global>")}
   scopes = [global-scope]
+  roots = []
+  funcs = []
   marks = []
   
   if ast instanceof Block
@@ -64,31 +66,47 @@ compile-typed-livescript = (program-text) ->
               #console.log "->"
               for member-name, member-node of collect-this m.params ++ [m.body]
                 clas.members.push {name: member-name, type: type-of-node(member-node)}
+                marks.push mark-for-node(member-node, {title: member-name, className: "mark variable"})
               fn-scope = {name: "->", type: fresh("S")}
               bridge.add ['.', fn-scope.type, TI("this"), TI(clas.name, 'class')]
-              collect-types m.params ++ [m.body], fn-scope, global-scope
-                bridge.add-all ..
+              roots.push {nodes: m.params ++ [m.body], ctx: [fn-scope, global-scope]}
             else if m instanceof Obj
               for mem in m.items
-                typ = type-of-node(mem)
+                typ = type-of-node(mem.val)
                 clas.members.push {name: mem.key.name, type: typ}
                 bridge.add ['.', TI(clas.name, 'class'), TI(mem.key.name), typ]
                 if mem.val instanceof Fun
-                  m = mem.val ; params-vec = fresh("P")
-                  ß.unify typ, TI("->").of(TI(clas.name, 'class'), params-vec, type-of-node(mem.val.body))
-                  ß.unify params-vec, TI("()").of(...m.params.map type-of-node)
-                  collect-types m.params ++ [m.body], fn-scope, global-scope
-                    bridge.add-all ..
+                  funcs.push {nodes: [mem.val], ctx: [global-scope], this-type: TI(clas.name, 'class')}
+      else if e instanceof Assign && e.left instanceof Var
+        global-scope.members.push {name: e.left.value, type: type-of-node(e.left)}
+        marks.push mark-for-node(e.left, {title: e.left.value, className: "mark variable"})
+        roots.push {nodes: [e], ctx: [global-scope, global-scope]}
+        if e.right instanceof Fun
+          funcs.push {nodes: [e.right], ctx: [global-scope]}
       else if e instanceof Fun
-        fn-scope = {name: "->", members: [], type: fresh("S")}
-          scopes.push ..
-        for var-name, var-node of collect-vars e.params ++ [e.body]
-          fn-scope.members.push {name: var-name, type: type-of-node(var-node)}
-          bridge.add ['.', fn-scope.type, TI(var-name), type-of-node(var-node)]
-          marks.push mark-for-node(var-node, {title: var-name, className: "mark variable"})
-        collect-types e.params ++ [e.body], fn-scope, global-scope
-          bridge.add-all ..
-            
+        funcs.push {nodes: [e], ctx: [global-scope]}
+        
+  for {nodes, ctx, this-type} in funcs
+    for e in nodes
+      # Function type
+      typ = type-of-node(e)
+      params-vec = fresh("P")
+      ß.unify typ, TI("->").of(this-type ? fresh(), params-vec, type-of-node(e.body))
+      ß.unify params-vec, TI("()").of(...e.params.map type-of-node)
+      # Function scope
+      fn-scope = {name: "->", members: [], type: fresh("S")}
+        scopes.push ..
+      if this-type?
+        bridge.add ['.', fn-scope.type, TI("this"), this-type]      
+      for var-name, var-node of collect-vars [e.body], e.params
+        fn-scope.members.push {name: var-name, type: type-of-node(var-node)}
+        bridge.add ['.', fn-scope.type, TI(var-name), type-of-node(var-node)]
+        marks.push mark-for-node(var-node, {title: var-name, className: "mark variable"})
+      roots.push {nodes: e.params ++ [e.body], ctx: [fn-scope] ++ ctx}
+
+  for {nodes, ctx} in roots
+    bridge.add-all collect-types nodes, ctx.0, ctx.1
+        
   try
     bridge.digest!
   catch e
@@ -101,7 +119,7 @@ compile-typed-livescript = (program-text) ->
   symbols: scopes
   unify: ß
 
-
+  
 compile-datalog = (program-text) ->
   db = new TupleStore
   dl = new Datalog db
@@ -161,11 +179,15 @@ collect-this = (ast) -> {}
         name = memacc.key.name
         ..[name] = memacc if name not of ..
 
-collect-vars = (ast) -> {}
-  foreach-node ast, (node) !->
+collect-vars = (stmts, defns) -> {}
+  foreach-node defns, (node) !->
     if node instanceof Var
       name = node.value
       ..[name] = node if name not of ..
+  foreach-node stmts, (node) !->
+    if node instanceof Assign && node.left instanceof Var
+      name = node.left.value
+      ..[name] = node.left if name not of ..
 
 collect-types = (ast, local-scope, global-scope) -> []
   foreach-node ast, (node) !->
@@ -178,9 +200,13 @@ collect-types = (ast, local-scope, global-scope) -> []
           if el.key instanceof Key
             if el.key.name == 'prototype'
               # t::type
-              typ = parse-type node.tails[i+1 to]
-              ..push ['unify', type-of-node(va), typ],
-                     ['unify', type-of-node(node), typ]
+              if ! (node.tails[i+1] instanceof Call)
+                typ = parse-type node.tails[i+1 to]
+                ..push ['unify', type-of-node(va), typ],
+                       ['unify', type-of-node(node), typ]
+              else
+                typ = parse-type node.tails[i+1].args
+                ..push ['unify', type-of-node(node), typ]
               is-typed = true ; break
             else
               ..push ['.', type-of-node(va), TI(el.key.name), type-of-node(el)]
@@ -194,7 +220,9 @@ collect-types = (ast, local-scope, global-scope) -> []
             if va instanceof Index && i > 0
               type-of-node(if i > 1 then node.tails[i-2] else node.head)
             else global-scope.type
-          fn-type = TI('->').of(this-type, fresh(), type-of-node(el))
+          params-vec = fresh("P")
+          ..push ['unify', params-vec, TI("()").of(...el.args.map type-of-node)]
+          fn-type = TI('->').of(this-type, params-vec, type-of-node(el))
           ..push ['unify', type-of-node(va), fn-type]
       if !is-typed
         ..push ['unify', type-of-node(node), type-of-node(node.tails[*-1])]
@@ -208,24 +236,40 @@ collect-types = (ast, local-scope, global-scope) -> []
       ..push ['.', local-scope.type, TI(node.value), type-of-node(node)]
     # Var
     if node instanceof Var
-      ..push ['.', local-scope.type, TI(node.value), type-of-node(node)]
+      scope = if lookup local-scope, node.value then local-scope else global-scope
+      ..push ['.', scope.type, TI(node.value), type-of-node(node)]
     # lhs = rhs
     if node instanceof Assign
-      ..push ['unify', type-of-node(node.left), type-of-node(node.right)]
+      ..push ['unify', type-of-node(node.left), type-of-node(node.right)], 
+             ['unify', type-of-node(node), type-of-node(node.left)]
     # [items]
     if node instanceof Arr
       for item in node.items
         arr-type = TI('[]').of(TI("Array", 'class'), type-of-node(item))
         ..push ['unify', type-of-node(node), arr-type]
-    # number
-    if node instanceof Literal && node.value is /^\d+$/
-      ..push ['unify', type-of-node(node), TI('int')]
+    # number / "string"
+    if node instanceof Literal
+      if node.value is /^\d+$/
+        ..push ['unify', type-of-node(node), TI('int')]
+      else if node.isString!
+        ..push ['unify', type-of-node(node), TI('string')]
+    # new T
+    if node instanceof Unary and node.op == "new"
+      if node.it instanceof Var   # TODO need to check that it's a class
+        ..push ['unify', type-of-node(node), TI(node.it.value, 'class')]
 
             
             
 parse-type = (elements) ->
-  if elements.length == 1 && (memacc = elements[0]) instanceof Index && memacc.symbol == '.' && memacc.key instanceof Key
+  if elements.length == 1 && \
+      (memacc = elements[0]) instanceof Index && memacc.symbol == '.' && memacc.key instanceof Key
     TI(memacc.key.name, 'class')
+  else if elements.length == 1 && (va = elements[0]) instanceof Var
+    TI(va.value, 'class')
+  else if elements.length == 2 && \
+    (memacc = elements[0]) instanceof Index && memacc.symbol == '.' && memacc.key instanceof Key && \
+    (idxacc = elements[1]) instanceof Index && idxacc.symbol == '.' && idxacc.key instanceof Parens
+    TI('[]').of(TI(memacc.key.name, 'class'), TI("'"+idxacc.key.it.value, 'variable'))
   else
     throw new Error "malformed type, '#{elements.map (.toString!) .join ','}'"
 
@@ -235,7 +279,7 @@ type-of-node = (ast) ->
 mark-for-node = (ast, options={}) ->
   from: {line: ast.first_line-1, ch: ast.first_column}
   to: 
-    if ast.value? then {line: ast.first_line-1, ch: ast.first_column + ast.value.length}
+    if (v = ast.value ? ast.key?.name)? then {line: ast.first_line-1, ch: ast.first_column + v.length}
     else {line: ast.last_line-1, ch: ast.last_column}
   options: {className: "mark variable"} <<< options
   

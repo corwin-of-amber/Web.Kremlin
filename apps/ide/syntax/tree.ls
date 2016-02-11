@@ -22,6 +22,9 @@ class Tree
       @subtrees.length == other.subtrees.length &&
       zip(@subtrees, other.subtrees).every -> it.0.equals(it.1)
 
+  nodes:~
+    -> [@].concat ...@subtrees.map (.nodes)
+
 
 T = -> new Tree ...
 

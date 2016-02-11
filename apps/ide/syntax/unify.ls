@@ -16,6 +16,8 @@ class Unifier
     if @is-freevar(x)
       console.assert x.subtrees.length == 0
       if not x.equals(y)
+        if @normalize y .nodes.some (.root.equals x.root)
+          throw new CannotUnify(x, y)
         @assn[x.root.literal] = y
         @rev += 1
     else if @is-freevar(y)
