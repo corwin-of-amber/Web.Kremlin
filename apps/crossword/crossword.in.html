@@ -3,6 +3,7 @@
 <%= jquery %>
 <%= hashmap %>
   <style>
+    
     table { border-collapse: collapse; }
     td { width: 1cm; height: 1cm; 
       border: 1px solid black;
@@ -14,12 +15,13 @@
       font-size: smaller;
     }
     td.black { background: black; }
-    td.highlit { background: #fffff0; }
+    td.highlit { background: rgba(255,255,0,0.2); }
     td p { margin: 0; text-align: center; 
       -webkit-user-modify: read-write;
+      -moz-user-modify: read-write;
     }
-    body { display: flex; align-items: stretch; }
-    div.hints { 
+    body { display: flex; align-items: stretch; height: 100%; }
+    div.hints {
       background: url(data/birman.png);
       background-repeat: no-repeat;
       background-position: right -100px bottom;
@@ -37,6 +39,7 @@
   </body>
   <script src="grid.ls.js"></script>
   <script type="text/ls">
+  BLANK = String.fromCharCode(160)  # non-breaking space
   mcell =
     style: (td) ->
       [i,j] = td.data \rowcol
@@ -46,7 +49,7 @@
             td.add-class \black
           else
             td.append ($ "<i>" .text v)
-      td.append ($ "<p>" .text "")
+      td.append ($ "<p>" .text BLANK)
     events: (td) ->
       td.click -> $(this).find 'p' .focus!
       td.focusin -> 
@@ -58,22 +61,25 @@
          mcell.highlight-sequence $(this)
       td.keydown (e) ->
         switch e.which
-        case 39 then   mcell.move $(this), \right
-        case 37 then   mcell.move $(this), \left
-        case 40 then   mcell.move $(this), \down
-        case 38 then   mcell.move $(this), \up
+        case 39 then   mcell.move $(this), \right  ;  e.preventDefault!
+        case 37 then   mcell.move $(this), \left  ;  e.preventDefault!
+        case 40 then   mcell.move $(this), \down  ;  e.preventDefault!
+        case 38 then   mcell.move $(this), \up    ;  e.preventDefault!
         case 8
-          $(this).find 'p' .text ''
-      td.keypress ->
+          if $(this).find 'p' .text! != BLANK
+            $(this).find 'p' .text BLANK
+          else
+            mcell.move $(this), mcell.opposite[mcell.sequence-dir] .text BLANK
+          e.preventDefault!
+      td.keypress (e) ->
         $(this).find 'p' .text ''
       td.on \input \p ->
         # persist the change
         txt = $(this).text!
-        console.log $(this).parent!data \rowcol
         userdata.fillin.set ($(this).parent!data \rowcol), txt
         userdata.save!
         # advance
-        if $(this).text! != ''
+        if $(this).text! != BLANK
           mcell.move $(this).parent!, mcell.sequence-dir
     get: (rowcol) ->
       eq = (a, b) -> a[0] == b[0] && a[1] == b[1]
@@ -91,6 +97,7 @@
       case 'up'
         (mcell.get-neighbour td, -1, 0) .find 'p' .focus!
     sequence-dir: "left"
+    opposite: {'right': 'left', 'left': 'right', 'up': 'down', 'down': 'up'}
     toggle-dir: ->
       d = {'left': 'down', 'down': 'left'}
       mcell.sequence-dir = d[mcell.sequence-dir]
@@ -127,6 +134,7 @@
     cw.on 'got-grid' ->
       for td in $ '#crossword td'
         mcell.style $(td)
+      $ 'td p' .attr 'contenteditable' ''
       # Re-read previously filled-in letters
       userdata.load!
       userdata.fillin.for-each (v, k) ->

@@ -6,7 +6,8 @@ cwdata =
     if cwdata.idx[row]
       that[col]
 
-$.ajax "./data/grid.json" .done (data, status) ->
+$.ajax "./data/grid.json", dataType: 'text' 
+.done (data, status) ->
   json = data
     .replace /\#.*/g ''
     .replace /(\d+):/g (_, num) -> """"#num":"""
