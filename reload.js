@@ -124,6 +124,7 @@ function _makeWatcher() {
 
 if (mode == 'nw') {
   var watcher = _makeWatcher();
+  Reload.watcher = watcher;
   window.addEventListener('unload', function() { watcher.close(); })
 }
 

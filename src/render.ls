@@ -49,17 +49,17 @@ Files =
 
   ignore-patterns: ['**/node_modules/**', '**/public/**']
 
-  find-all: (glob-pattern, start-dir) ->
+  find-all: (glob-pattern, start-dir, exclude-patterns=[]) ->
     if !start-dir? then start-dir = @projdir
     matches = glob.sync glob-pattern, do
       match-base: true
       cwd: start-dir
-      ignore: @ignore-patterns
+      ignore: @ignore-patterns ++ exclude-patterns
     matches.map -> path.join(start-dir, it)
     
   rewriteFileSync: (filename, content) ->
     # This is done to refrain from tripping other fs watchers
-    if !(fs.exists(filename) && fs.readFileSync(filename, 'utf-8') == content)
+    if !(fs.existsSync(filename) && fs.readFileSync(filename, 'utf-8') == content)
       fs.writeFileSync(filename, content)
 
   Hash:
@@ -112,7 +112,7 @@ compile = (reload) ->
     inputs = Files.find-all "*.jison" .filter Files.Hash~is-dirty
     cli = require 'jison/lib/cli'
     for input in inputs
-      output = input + ".js"
+      output = "#input.js"
       console.log "#{path.basename input} --> #{path.basename output}"
       cli.main {file: input, outfile: output, 'module-type': 'js'}
       delete global.require.cache[fs.realpathSync(output)]
@@ -125,13 +125,31 @@ compile = (reload) ->
     if typeof(window) != 'undefined' then window.nearley = nearley   # @@@ this hack is needed if the main file does not <script src="nearley">
     [Compile, parserGrammar, generate] = [require('nearley/lib/compile'), require('nearley/lib/nearley-language-bootstrapped'), require('nearley/lib/generate')]
     for input in inputs
-      output = input + ".js"
+      output = "#input.js"
       console.log "#{path.basename input} --> #{path.basename output}"
       new nearley.Parser(parserGrammar.ParserRules, parserGrammar.ParserStart)
         ..feed fs.readFileSync input, 'utf-8'
         generate(Compile(..results[0], opts), opts.export)
           Files.rewriteFileSync(output, ..)
       delete global.require.cache[fs.realpathSync(output)]
+      Files.Hash.commit input
+      
+  ts: ~>
+    inputs = Files.find-all "*.ts", , <[**/*.d.ts]>
+    console.log inputs
+    if @tsbuild?
+      console.log "ts: compiling incrementally"
+      inputs .= filter Files.Hash~is-dirty
+      if inputs.length > 0
+        for fn in inputs
+          @tsbuild.files{}[fn].version = (@tsbuild.files[fn].version ? 0) + 1
+        console.log JSON.stringify @tsbuild.files
+        inputs.map @tsbuild~emit-file
+    else
+      if inputs.length > 0
+        ts = require "./typescript"
+        @tsbuild = ts.build inputs
+    for input in inputs
       Files.Hash.commit input
 
 
