@@ -56,6 +56,13 @@ Files =
       cwd: start-dir
       ignore: @ignore-patterns ++ exclude-patterns
     matches.map -> path.join(start-dir, it)
+  
+  find-closest: (glob-pattern, start-dir) ->
+    dir = start-dir ? @projdir
+    while fs.realpathSync(dir) != '/'
+      matches = glob.sync glob-pattern, cwd: dir
+      if matches.length then return matches[0]
+      dir = path.join(dir, '..')
     
   rewriteFileSync: (filename, content) ->
     # This is done to refrain from tripping other fs watchers
@@ -99,7 +106,6 @@ compile = (reload) ->
   in: ->
     settings = {interpolate: /<%=(.+?)[/%]>/g}
     inputs = Files.find-all "*.in.html" .filter Files.Hash~is-dirty
-    #glob.sync("#{projdir}/**/*.in.html", {ignore: Files.ignore-patterns})
     inputs.map (input) ->
       output = input.replace(/\.in\.html$/, '.html')
       console.log "#{path.basename input} --> #{path.basename output}"
@@ -135,20 +141,23 @@ compile = (reload) ->
       Files.Hash.commit input
       
   ts: ~>
-    inputs = Files.find-all "*.ts", , <[**/*.d.ts]>
+    {Configs} = require './configs'
+    tsconfig = Configs.find('tsconfig.json')
+    exclude = [x for e in tsconfig?json?exclude ? [] for x in [e, "#e/**"]]
+    inputs = Files.find-all "*.ts", , <[**/typings/browser.d.ts **/typings/browser/**]> ++ exclude
     console.log inputs
+    output-func = (input, output, text) ->
+      console.log "#{path.basename input} --> #{path.basename output}"
+      Files.rewriteFileSync(output, text)
     if @tsbuild?
-      console.log "ts: compiling incrementally"
       inputs .= filter Files.Hash~is-dirty
       if inputs.length > 0
-        for fn in inputs
-          @tsbuild.files{}[fn].version = (@tsbuild.files[fn].version ? 0) + 1
-        console.log JSON.stringify @tsbuild.files
-        inputs.map @tsbuild~emit-file
+        console.log "ts: compiling incrementally"
+        @tsbuild.rebuild inputs, output-func
     else
       if inputs.length > 0
         ts = require "./typescript"
-        @tsbuild = ts.build inputs
+        @tsbuild = ts.build inputs, , output-func
     for input in inputs
       Files.Hash.commit input
 

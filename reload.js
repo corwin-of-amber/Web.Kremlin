@@ -15,17 +15,17 @@ var fs = require('fs')
   , child_process = require('child_process')
   , path = require('path')
 
-var mode;
+var mode, here, there, projdir;
 
 if (typeof module != 'undefined') {
     mode = 'cli';
 
     require('LiveScript');
 
-    var here = path.dirname(module.filename);
-    var projdir = process.cwd();
+    here = path.dirname(module.filename);
+    projdir = process.cwd();
 
-    var there = path.relative(projdir, here) || ".";
+    there = path.relative(projdir, here) || ".";
 
     global.require = require;
     console.group = console.groupEnd = console.log;
@@ -33,10 +33,10 @@ if (typeof module != 'undefined') {
 else {
     mode = 'nw';
     /* require() works in mysterious ways */
-    var projdir = fs.realpathSync(path.dirname(window.location.pathname));
+    projdir = fs.realpathSync(path.dirname(window.location.pathname));
     var thisScript = path.basename(document.currentScript.attributes.src.value)
     var thisScriptPath = path.join(projdir, document.currentScript.attributes.src.value)
-    var here = '.'
+    here = '.'
     var depth = 5;
     for (var i = 0; i < depth; i++) {
       try { global.require.resolve(path.join(here, thisScript)); break; }
@@ -50,10 +50,11 @@ else {
     }
     if (i >= depth) there = path.dirname(thisScriptPath);
     there = (path.relative(process.cwd(), there)) || ".";
-
+    /*
     this.here = here
     this.there = there
     this.projdir = projdir
+    */
 }
 
 global.require.extensions['.ls.js'] = global.require.extensions['.js'];
@@ -62,6 +63,14 @@ global.require.extensions['.coffee.js'] = global.require.extensions['.js'];
 var render = require(here+'/src/render');
 
 Reload = {
+  cd: function(projdirChange) {
+    projdir = path.isAbsolute(projdirChange) ? projdirChange 
+      : path.join(projdir, projdirChange);
+    fs.lstat(projdir, function(error, stat) {
+      if (error) console.warn(`projdir='${projdir}': ${error.message}`)
+      else if (!stat.isDirectory) console.warn(`projdir='${projdir}': not a directory`)
+    });
+  },
   _ignored: function(filename) { 
     return !(this._ignoreFuncs.every(function(f) { 
       try { return !f(filename); } catch(e) { console.error(e); } 
@@ -110,7 +119,7 @@ function _reload() {
 }
   
 function _makeWatcher() {
-  return fs.watch(projdir, {persistent: false, recursive: true}, function (event, filename) {
+  var watcher = fs.watch(projdir, {persistent: false, recursive: true}, function (event, filename) {
     if (filename && Reload._ignored(filename)) return ;
     console.log(filename);
     watcher.close();
@@ -120,12 +129,20 @@ function _makeWatcher() {
       }, 200);
     }
   });
+  window.addEventListener('unload', function() { watcher.close(); })
+  return watcher;
 }
 
 if (mode == 'nw') {
-  var watcher = _makeWatcher();
-  Reload.watcher = watcher;
-  window.addEventListener('unload', function() { watcher.close(); })
+  /* wait for document to become ready before installing the watcher
+   * to give the page a chance to call Reload.cd() or do other
+   * configuration. */
+  document.onreadystatechange = function () {
+    if (document.readyState == "interactive") {
+      var watcher = _makeWatcher();
+      Reload.watcher = watcher;
+    }
+  };
 }
 
 if (mode == 'cli') {

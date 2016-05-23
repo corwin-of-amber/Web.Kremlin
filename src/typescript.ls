@@ -15,9 +15,9 @@ path = require 'path'
 ts = require 'typescript'
 
 
-build = (root-filenames, options={ module: ts.ModuleKind.CommonJS }) ->
-   /*    : string[]      : ts.CompilerOptions */
-   # 'options' has an additional flag wrapWithFunction : bool
+build = (root-filenames, options={ module: ts.ModuleKind.CommonJS }, output-func) ->
+  /*     : string[]      : ts.CompilerOptions */
+  # 'options' has an additional flag wrapWithFunction : bool
   
   files = {}   /* : Map<{ version: number }> */
   
@@ -40,25 +40,26 @@ build = (root-filenames, options={ module: ts.ModuleKind.CommonJS }) ->
   # Create the language service files
   services = ts.createLanguageService(servicesHost, ts.createDocumentRegistry!)
   
-  emit-file = (fn) ->
+  emit-file = (fn, output-func) ->
     output = services.getEmitOutput(fn)
 
-    logErrors(fn);
+    logErrors(fn)
     
     if output.emitSkipped
       console.log "Emitting #fn failed"
       
     for o in output.outputFiles
       out-fn = o.name.replace /\.js$/, '.ts.js'
-      console.log "#{path.basename fn} --> #{path.basename out-fn}"
       if options.wrapWithFunction
         program = "(function() {\n#{o.text}\n}).call(this);"  # < wraps each unit with an anon function
       else
         program = o.text
-      # This is done to refrain from tripping other fs watchers
-      # notice: copied from Files class in render.ls. Unify?
-      if !(fs.existsSync(out-fn) && fs.readFileSync(out-fn, 'utf-8') == program)
-        fs.writeFileSync(out-fn, program, 'utf8')
+      if output-func? then output-func fn, out-fn, program
+      else
+        # This is done to refrain from tripping other fs watchers
+        # notice: copied from Files class in render.ls. Unify?
+        if !(fs.existsSync(out-fn) && fs.readFileSync(out-fn, 'utf-8') == program)
+          fs.writeFileSync(out-fn, program, 'utf8')
       
   log-errors = (fn) ->
     all-diagnostics = services.getCompilerOptionsDiagnostics()
@@ -72,12 +73,20 @@ build = (root-filenames, options={ module: ts.ModuleKind.CommonJS }) ->
         console.error "  Error in #{diagnostic.file.fileName} (#{line + 1},#{character + 1}): #{message}"
       else
         console.error "  Error: #{message}"
-    
+  
+  rebuild = (modified-filenames, output-func) ->
+    # TODO: doesn't seem to do the right thing when new files are created.
+    # Getting error 'Could not find file: ....'
+    for fn in modified-filenames
+      files{}[fn].version = (files[fn].version ? 0) + 1
+    for fn in modified-filenames
+      emit-file fn, output-func
+  
   # Now emit all the files
   for fn in root-filenames
-    emit-file(fn)
+    emit-file(fn, output-func)
     
-  {files, emit-file}
+  {files, emit-file, rebuild}
     
 
 if (require.main == module)
