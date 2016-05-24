@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title>Tiny example</title>
+    <script src="../../reload.js"></script>
+      <script>delete module;</script>
+    <%= jquery />
+    <style>
+    #plain { white-space: pre; }
+    #viz { border: 1px solid black; float: left; }
+    </style>
+    <script src="./node_modules/viz.js/viz.js"></script>
+  </head>
+  <body>
+    <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="200" height="400" id="viz">
+    </svg>
+    <div id="plain"></div>
+    
+    <script>
+    plain = Viz("graph { node [shape=circle]; a -- b; a -- c; c -- b; }", {format: 'plain'});
+    $('#plain').text( plain );
+    
+    var SVGNS="http://www.w3.org/2000/svg";
+    
+    var scale = 200;
+    var height = 1;
+    var width = 1;
+
+    function graph(_width, _height) {
+        width = _width;
+        height = _height;
+        $('#viz').width(width * scale);
+        $('#viz').height(height * scale);
+    }
+
+    function ellipse(cx, cy, dx, dy) {
+      cy = height - cy;
+      $(document.createElementNS(SVGNS, 'ellipse')).attr({cx: cx*scale, cy: cy*scale, rx: dx*scale/2, ry: dy*scale/2}).css({stroke: 'black', strokeWidth: '2px', fill: 'lightgrey'}).appendTo('#viz');
+      
+    }
+
+    plain.split("\n").map(function(x) { return x.split(" "); }).forEach(function(l) {
+        console.log(l);
+        if (l[0] == "graph") {
+            graph(parseFloat(l[2]), parseFloat(l[3]));
+        }
+        else if (l[0] == "node") {
+            ellipse(l[2], l[3], l[4], l[5]);
+        }
+        else if (l[0] == "edge") {
+            for (var i = 0; i < l[3]; i++) {
+                var x = l[4 + i*2], y = l[4 + i*2 + 1];
+                ellipse(x, y, 0.02, 0.02);
+            }
+        }
+    });
+
+    </script>
+    
+  </body>
+</html>
