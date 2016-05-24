@@ -44,7 +44,7 @@ app = angular.module "app" []
           <- $scope.$apply
           $scope.tracks = data
           $scope.albums = project data, 'album'
-          $scope.artists = project data, 'artist'
+          $scope.artists = project data, 'artist', 2
     
     $scope.reload-tracks!
     
@@ -55,18 +55,18 @@ app = angular.module "app" []
       $.get "#{$scope.base-url}/vol?#volume/#max"
       
   ..filter \project ->
-    (tracks, column) -> project tracks, column
+    (tracks, [column, th]) -> project tracks, column, th
     
   ..filter \tracknum ->
     (value) -> if value ~= 0 then "" else value
     
-uniq = (values) ->
-  []
-    for v in values
-      if v not in .. then ..push v
+uniq = (values, threshold=1) -> []
+  hist = {}
+  for v in values
+    if (hist[v] = (hist[v] ? 0) + 1) == threshold then ..push v
     
-project = (tracks, column) ->
-  uniq [..[column] for tracks]
+project = (tracks, column, threshold) ->
+  uniq [..[column] for tracks], threshold
   
 upload = (base-url, reload-cb) ->
   fe = document.forms.upload.elements
@@ -103,6 +103,10 @@ upload = (base-url, reload-cb) ->
   .hi { 
     background-color: rgba(0,0,255,0.2) !important; 
   }
+  #picker {
+    display: flex;
+    align-items: flex-start;
+  }
   ul { 
     border: 1px solid green; 
     min-width: 150px; 
@@ -126,8 +130,9 @@ upload = (base-url, reload-cb) ->
   <div><input ng-model="baseUrl" list="recentUrls">
   <button id="reload" ng-click="reloadTracks()">Reload</button>
   </div>
-  <ul style="float: left">
-    <li ng-repeat="artist in tracks | project:'artist'" 
+  <div id="picker">
+  <ul>
+    <li ng-repeat="artist in tracks | project:['artist',2]" 
       ng-click="select.artist=artist"
       ng-class="{hi: select.artist==artist}">
       {{artist}}
@@ -136,10 +141,10 @@ upload = (base-url, reload-cb) ->
       ng-class="{hi: !select.artist}">
       [all]</li>
   </ul>
-  <ul style="float: left">
+  <ul>
     <li ng-repeat="album in tracks 
       | filter:cu({artist: select.artist})
-      | project:'album'" 
+      | project:['album']" 
       ng-click="select.album=album"
       ng-class="{hi: select.album==album}">
       {{album}}
@@ -148,6 +153,7 @@ upload = (base-url, reload-cb) ->
       ng-class="{hi: !select.album}">
       [all]</li>
   </ul>
+  </div>
   
   <div style="clear: both">
     <span ng-click="stop()">[stop]</span>

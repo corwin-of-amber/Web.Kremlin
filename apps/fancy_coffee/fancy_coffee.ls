@@ -54,7 +54,7 @@ class FancyClient extends EventEmitter
     @pinger = pinger = new Pinger
     pinger.install!
 
-    @cl = cl = new Client jid: jid, password: password, host: 'conference.mit.edu'
+    @cl = cl = new Client jid: jid, password: password, host: 'jabber.mit.edu'
     cl.setMaxListeners(2)
 
     cl.connection.socket.on 'error', (error) ->
