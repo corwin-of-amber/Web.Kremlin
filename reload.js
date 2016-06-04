@@ -17,7 +17,7 @@ var fs = require('fs')
 
 var mode, here, there, projdir;
 
-if (typeof module != 'undefined') {
+if (typeof window == 'undefined') {
     mode = 'cli';
 
     require('LiveScript');
@@ -27,11 +27,12 @@ if (typeof module != 'undefined') {
 
     there = path.relative(projdir, here) || ".";
 
-    global.require = require;
+    framework = {require: require};
     console.group = console.groupEnd = console.log;
 }
 else {
     mode = 'nw';
+    framework = {require: global.require};
     /* require() works in mysterious ways */
     projdir = fs.realpathSync(path.dirname(window.location.pathname));
     var thisScript = path.basename(document.currentScript.attributes.src.value)
@@ -39,7 +40,7 @@ else {
     here = '.'
     var depth = 5;
     for (var i = 0; i < depth; i++) {
-      try { global.require.resolve(path.join(here, thisScript)); break; }
+      try { framework.require.resolve(path.join(here, thisScript)); break; }
       catch (e) { here = path.join(here, '..'); }
     }
     if (i >= depth) here = path.dirname(thisScriptPath);
@@ -50,25 +51,24 @@ else {
     }
     if (i >= depth) there = path.dirname(thisScriptPath);
     there = (path.relative(process.cwd(), there)) || ".";
-    /*
-    this.here = here
-    this.there = there
-    this.projdir = projdir
-    */
+    /* in case we are running inside Electron (this is dangerous) */
+    delete module;
 }
 
-global.require.extensions['.ls.js'] = global.require.extensions['.js'];
-global.require.extensions['.coffee.js'] = global.require.extensions['.js'];
+framework.require.extensions['.ls.js'] = framework.require.extensions['.js'];
+framework.require.extensions['.coffee.js'] = framework.require.extensions['.js'];
 
 var render = require(here+'/src/render');
 
 Reload = {
+  framework: framework,
   cd: function(projdirChange) {
+    if (this.watcher) console.warn("Reload: too late to change directory (watcher already started)");
     projdir = path.isAbsolute(projdirChange) ? projdirChange 
       : path.join(projdir, projdirChange);
     fs.lstat(projdir, function(error, stat) {
-      if (error) console.warn(`projdir='${projdir}': ${error.message}`)
-      else if (!stat.isDirectory) console.warn(`projdir='${projdir}': not a directory`)
+      if (error) console.warn(`Reload: projdir='${projdir}': ${error.message}`)
+      else if (!stat.isDirectory) console.warn(`Reload: projdir='${projdir}': not a directory`)
     });
   },
   _ignored: function(filename) { 
@@ -97,7 +97,7 @@ Reload = {
 function _rebuildAndReload() {
   console.group("rebuild " + projdir);
   var nerrors = 0
-  var compile = render.compile({projdir: projdir, there: there});
+  var compile = render.compile({projdir: projdir, there: there, framework: framework});
   try {
     for (k in compile)
       try { compile[k]() }

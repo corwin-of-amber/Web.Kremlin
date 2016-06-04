@@ -80,6 +80,7 @@ Files =
 compile = (reload) ->
   projdir = Files.projdir = reload.projdir
   incdir = reload.there
+  global = reload.framework
 
   ls: ->
     inputs = Files.find-all "*.ls" .filter Files.Hash~is-dirty
