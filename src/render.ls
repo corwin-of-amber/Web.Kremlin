@@ -23,6 +23,7 @@ macros = (PACKAGES, rootPath="", more-tags={}) ->
 mk-tag = (resource) ->
   if resource is /\.js$/ then """<script src="#{resource}"></script>"""
   else if resource is /\.css$/ then "<link rel=\"stylesheet\" text=\"text/css\" href=\"#{resource}\">"
+  else console.warn "unrecognized resource, '#resource'"
 
 
 bower-macros = (wd) -> {}
@@ -34,6 +35,7 @@ bower-macros = (wd) -> {}
         if fs.existsSync(bower-json) && fs.lstatSync(bower-json).isFile!
           try
             main = JSON.parse fs.readFileSync bower-json, 'utf-8' .main
+              if _.isString .. then main = [..]
             uri = (resource) -> path.relative(wd, path.join(bower, module, resource))
             ..[module] = [mk-tag uri x for x in main].join "\n"
           catch e

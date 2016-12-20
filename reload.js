@@ -22,7 +22,7 @@ if (typeof window == 'undefined') {
 
     require('LiveScript');
 
-    here = path.dirname(module.filename);
+    here = path.dirname(process.argv[1]);  //  module.filename doe *not* work because it will expand symlinks
     projdir = process.cwd();
 
     there = path.relative(projdir, here) || ".";
@@ -34,7 +34,9 @@ else {
     mode = 'nw';
     framework = {require: global.require};
     /* require() works in mysterious ways */
-    projdir = fs.realpathSync(path.dirname(window.location.pathname));
+    /* TODO see if we can do this better with global.module.filename or global.module.paths */
+    pathname = path.join(window.location.protocol == 'file:' ? '' : global.__dirname, window.location.pathname)
+    projdir = fs.realpathSync(path.dirname(pathname));
     var thisScript = path.basename(document.currentScript.attributes.src.value)
     var thisScriptPath = path.join(projdir, document.currentScript.attributes.src.value)
     here = '.'
@@ -44,12 +46,12 @@ else {
       catch (e) { here = path.join(here, '..'); }
     }
     if (i >= depth) here = path.dirname(thisScriptPath);
-    var there = path.dirname(window.location.pathname)
+    /*var there = path.dirname(pathname)
     for (var i = 0; i < depth; i++) {
       if (fs.existsSync(path.join(there, thisScript))) break;
       else there = path.dirname(there);
     }
-    if (i >= depth) there = path.dirname(thisScriptPath);
+    if (i >= depth)*/ there = path.dirname(thisScriptPath);
     there = (path.relative(process.cwd(), there)) || ".";
     /* in case we are running inside Electron (this is dangerous) */
     delete module;
@@ -122,10 +124,11 @@ function _makeWatcher() {
   var watcher = fs.watch(projdir, {persistent: false, recursive: true}, function (event, filename) {
     if (filename && Reload._ignored(filename)) return ;
     console.log(filename);
+    process.stdout.write(filename);
     watcher.close();
     if (!_rebuildAndReload()) {
       setTimeout(function() {
-        watcher = _makeWatcher(); // restart watcher
+        watcher = _makeWatcher(); // restart watcher - notice that this does not update Reload.watcher
       }, 200);
     }
   });
@@ -139,8 +142,9 @@ if (mode == 'nw') {
    * configuration. */
   document.onreadystatechange = function () {
     if (document.readyState == "interactive") {
-      var watcher = _makeWatcher();
-      Reload.watcher = watcher;
+      setTimeout(function() {
+        Reload.watcher = _makeWatcher();  // attach to Reload: for debugging only
+      }, 200);
     }
   };
 }
