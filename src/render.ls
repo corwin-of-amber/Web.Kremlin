@@ -6,8 +6,8 @@ CoffeeScript = require('coffee-script')
 _ = require('underscore')
 
 pkgconfig = require('./lib/pkg-config')
-  
-  
+
+
 macros = (PACKAGES, rootPath="", more-tags={}) ->
   d = {}
   uri = (path, name) ->
@@ -46,6 +46,11 @@ and-ancestors = (dir) -> [dir]
     ..push dir
 
 
+template = (code, settings={}) -> (macros) ->
+  pattern = settings.interpolate ? /<%=\s*(.+?)\s*[/%]>/g
+  code.replace pattern, (, expr) -> macros[expr] ? "<!-- #{expr} not found -->"
+
+
 Files =
   projdir: '.'
 
@@ -58,14 +63,14 @@ Files =
       cwd: start-dir
       ignore: @ignore-patterns ++ exclude-patterns
     matches.map -> path.join(start-dir, it)
-  
+
   find-closest: (glob-pattern, start-dir) ->
     dir = start-dir ? @projdir
     while fs.realpathSync(dir) != '/'
       matches = glob.sync glob-pattern, cwd: dir
       if matches.length then return matches[0]
       dir = path.join(dir, '..')
-    
+
   rewriteFileSync: (filename, content) ->
     # This is done to refrain from tripping other fs watchers
     if !(fs.existsSync(filename) && fs.readFileSync(filename, 'utf-8') == content)
@@ -107,7 +112,6 @@ compile = (reload) ->
       Files.Hash.commit input
 
   in: ->
-    settings = {interpolate: /<%=(.+?)[/%]>/g}
     inputs = Files.find-all "*.in.html" .filter Files.Hash~is-dirty
     inputs.map (input) ->
       output = input.replace(/\.in\.html$/, '.html')
@@ -115,8 +119,8 @@ compile = (reload) ->
       rootDir = path.relative(path.dirname(output), incdir+'/public')
       macros_ = macros(pkgconfig.PACKAGES, rootDir) <<< bower-macros(path.dirname(output))
       code = fs.readFileSync(input, 'utf-8')
-      Files.rewriteFileSync(output, _.template(code, settings)(macros_))
-      
+      Files.rewriteFileSync(output, template(code)(macros_))
+
   jison: ->
     inputs = Files.find-all "*.jison" .filter Files.Hash~is-dirty
     cli = require 'jison/lib/cli'
@@ -126,7 +130,7 @@ compile = (reload) ->
       cli.main {file: input, outfile: output, 'module-type': 'js'}
       delete global.require.cache[fs.realpathSync(output)]
       Files.Hash.commit input
-      
+
   ne: ->
     opts = {export: "grammar"}
     inputs = Files.find-all "*.ne" .filter Files.Hash~is-dirty
@@ -142,7 +146,7 @@ compile = (reload) ->
           Files.rewriteFileSync(output, ..)
       delete global.require.cache[fs.realpathSync(output)]
       Files.Hash.commit input
-      
+
   ts: ~>
     {Configs} = require './configs'
     tsconfig = Configs.find('tsconfig.json')
