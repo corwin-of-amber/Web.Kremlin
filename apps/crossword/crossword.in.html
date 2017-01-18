@@ -1,7 +1,11 @@
-<script src="../../reload.js"></script>
+<script src="./node_modules/nwjs-kremlin/reload.js"></script>
+<script>Reload.ignore(/[.](json|zip|crdownload)$/)</script>
 
-<%= jquery %>
-<%= hashmap %>
+<%= jquery />
+<%= hashmap />
+<%= jszip />
+<%= file-saver />
+
   <style>
     
     table { border-collapse: collapse; }
@@ -43,6 +47,7 @@
   mcell =
     style: (td) ->
       [i,j] = td.data \rowcol
+      td.empty!
       if cwdata.idx[i]
         if v = that[j]
           if v == "x"
