@@ -16,7 +16,7 @@ $.ajax "./data/grid.json", dataType: 'text'
 
 userdata =
   fillin: new HashMap()
-  save: -> 0 # localStorage["userdata"] = JSON.stringify @
+  save: -> localStorage["userdata"] = JSON.stringify @
   load: ->
     for own k,v of JSON.parse localStorage["userdata"] ? "{}"
       @[k] <<< v
@@ -31,18 +31,23 @@ download = ->
     ..file 'data.json' JSON.stringify {cwdata, userdata}
     ..file 'birman.png' fs.readFileSync 'data/birman.png'
     ..generateAsync type: 'blob' .then ->
-      console.log it
       saveAs it, "birman-#{datestamp!}.zip"
 
 upload = (fn) ->
   fs = require 'fs'  /* this only works on Node atm */
   data = fs.readFileSync fn
   JSZip.loadAsync data
-  .then -> it.file('data.json').async('string').then JSON.parse .then ->
-    cwdata <<< it.cwdata
-    for own k,v of it.userdata
-      userdata[k] <<< v
-    $ \#crossword .trigger 'got-grid'
+  .then ->
+    it.file('data.json').async('string').then JSON.parse .then ->
+      cwdata <<< it.cwdata
+      for own k,v of it.userdata
+        userdata[k] <<< v
+      $ \#crossword .trigger 'got-grid'
+    it.file('birman.png').async('base64').then ->
+      uri = "data:image/png;base64,#{it}"
+      $('.hints').css 'background-image', "url(#{uri})" # no-repeat scroll right -100px 100%"
+    .catch ->
+      console.log it
 
 
 datestamp = ->

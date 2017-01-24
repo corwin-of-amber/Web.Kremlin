@@ -47,7 +47,7 @@
   mcell =
     style: (td) ->
       [i,j] = td.data \rowcol
-      td.empty!
+      td.empty!remove-class \black
       if cwdata.idx[i]
         if v = that[j]
           if v == "x"
@@ -135,13 +135,14 @@
         mcell.events td
         tr.append (td)
       cw.append tr
-      
+    
+    # Re-read previously filled-in letters
+    userdata.load!
+
     cw.on 'got-grid' ->
       for td in $ '#crossword td'
         mcell.style $(td)
       $ 'td p' .attr 'contenteditable' ''
-      # Re-read previously filled-in letters
-      userdata.load!
       userdata.fillin.for-each (v, k) ->
         mcell.get k .find 'p' .text v
       
