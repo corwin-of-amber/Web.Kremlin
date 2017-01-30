@@ -6,13 +6,14 @@ cwdata =
     if cwdata.idx[row]
       that[col]
 
-$.ajax "./data/grid.json", dataType: 'text'
-.done (data, status) ->
-  json = data
-    .replace /\#.*/g ''
-    .replace /(\d+):/g (_, num) -> """"#num":"""
-  cwdata.idx = JSON.parse json
-  $ \#crossword .trigger 'got-grid'
+$ ->
+  $.ajax "./data/grid.json", dataType: 'text'
+  .done (data, status) ->
+    json = data
+      .replace /\#.*/g ''
+      .replace /(\d+):/g (_, num) -> """"#num":"""
+    cwdata.idx = JSON.parse json
+    $ \#crossword .trigger 'got-grid'
 
 userdata =
   fillin: new HashMap()
@@ -55,8 +56,6 @@ datestamp = ->
   pad2 = -> ('0' + it).slice(-2)
   "#{d.getFullYear!}#{pad2 d.getMonth!+1}#{pad2 d.getDate!}"
 
-  #("0" + d.getDate()).slice(-2) + "-" + ("0"+(d.getMonth()+1)).slice(-2) + "-" +
-  #  d.getFullYear() + " " + ("0" + d.getHours()).slice(-2) + ":" + ("0" + d.getMinutes()).slice(-2);
 
 
 @ <<< {cwdata, userdata, download, upload}
