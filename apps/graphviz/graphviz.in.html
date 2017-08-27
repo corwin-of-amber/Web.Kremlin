@@ -4,13 +4,12 @@
     <meta charset="utf-8">
     <title>Tiny example</title>
     <script src="../../reload.js"></script>
-      <script>delete module;</script>
     <%= jquery />
     <style>
     #plain { white-space: pre; }
     #viz { border: 1px solid black; float: left; }
     </style>
-    <script src="./node_modules/viz.js/viz.js"></script>
+    <!-- <script src="./node_modules/viz.js/viz.js"></script> -->
   </head>
   <body>
     <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="200" height="400" id="viz">
@@ -18,6 +17,7 @@
     <div id="plain"></div>
     
     <script>
+    Viz = framework.require('viz.js');
     plain = Viz("graph { node [shape=circle]; a -- b; a -- c; c -- b; }", {format: 'plain'});
     $('#plain').text( plain );
     

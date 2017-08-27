@@ -1,3 +1,4 @@
 {
-"name": "graphviz-example"
+  "name": "graphviz-example",
+  "main": "graphviz.html"
 }
