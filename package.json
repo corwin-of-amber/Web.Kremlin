@@ -7,7 +7,7 @@
     "coffee-script": "*",
     "glob": "^5.0.9",
     "jison": "~0.4.15",
-    "livescript": "*",
+    "livescript": "^1.5.0",
     "nearley": "^2.2.0",
     "prelude-ls": "^1.1.2",
     "requireg": "^0.1.5",
@@ -15,7 +15,7 @@
     "underscore": "*"
   },
   "scripts": {
-    "prepublish": "node reload.js",
+    "install": "node reload.js",
     "start": "nw .&"
   }
 }

@@ -1,15 +1,8 @@
-try {
-var gui = require('nw.gui');
-try {
-  win = gui.Window.get();
-  var nativeMenuBar = new gui.Menu({ type: "menubar" });
-  nativeMenuBar.createMacBuiltin("Web.RealTime");
-  win.menu = nativeMenuBar;
-} catch (ex) {
-  console.log(ex.message);
-}
-} catch (ex) { /* guess we're not running inside nwjs */ }
-
+/*
+ * reload.js
+ * Handles automatic rebuild and reload of a NWjs application when
+ * files in the working directory change.
+ */
 
 var fs = require('fs')
   , child_process = require('child_process')
@@ -46,12 +39,7 @@ else {
       catch (e) { here = path.join(here, '..'); }
     }
     if (i >= depth) here = path.dirname(thisScriptPath);
-    /*var there = path.dirname(pathname)
-    for (var i = 0; i < depth; i++) {
-      if (fs.existsSync(path.join(there, thisScript))) break;
-      else there = path.dirname(there);
-    }
-    if (i >= depth)*/ there = path.dirname(thisScriptPath);
+    there = path.dirname(thisScriptPath);
     there = (path.relative(process.cwd(), there)) || ".";
     /* in case we are running inside Electron (this is dangerous) */
     delete module;
@@ -79,7 +67,8 @@ Reload = {
     }));
   },
   _ignoreFuncs: [function(filename) { return filename.split(path.sep).some(
-                   function(x) { return x[0] == '.' || x == 'node_modules' }) }],
+                   function(x) { return x[0] == '.' || x == 'node_modules' || x == 'bower_components'}) },
+                 function(filename) { return /^\d+$/.exec(filename) }],
   ignore: function(/*filters...*/) {
     function ignore(filt) {
       if (filt instanceof RegExp) f = function(filename) { return filename.match(filt); };
@@ -97,13 +86,13 @@ Reload = {
 
 
 function _rebuildAndReload() {
-  console.group("rebuild " + projdir);
+  //console.group("rebuild " + projdir);
   var nerrors = 0
   var compile = render.compile({projdir: projdir, there: there, framework: framework});
   try {
     for (k in compile)
       try { compile[k]() }
-      catch(e) { nerrors++; console.error("Error in builder '" + k + "': " + e.stack); }
+      catch(e) { nerrors++; console.error("Error in builder '" + k + "': " + (e.stack || e.message)); }
   
     var success = (nerrors == 0)
     if (success) _reload();
