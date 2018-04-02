@@ -47,8 +47,13 @@ and-ancestors = (dir) -> [dir]
 
 
 template = (code, settings={}) -> (macros) ->
+  lookup = (expr) ->
+    macros[expr] ? do ->
+      lu = macros
+      expr.split('.').for-each -> lu := lu?[it]
+      lu
   pattern = settings.interpolate ? /<%=\s*(.+?)\s*[/%]>/g
-  code.replace pattern, (, expr) -> macros[expr] ? "<!-- #{expr} not found -->"
+  code.replace pattern, (, expr) -> lookup(expr) ? "<!-- #{expr} not found -->"
 
 
 Files =
@@ -90,11 +95,12 @@ compile = (reload) ->
   global = reload.framework
 
   ls: ->
+    opts = {map: 'embedded'}
     inputs = Files.find-all "*.ls" .filter Files.Hash~is-dirty
     for input in inputs
       output = input + ".js"
       console.log "#{path.basename input} --> #{path.basename output}"
-      js = LiveScript.compile(fs.readFileSync(input, 'utf-8'))
+      js = LiveScript.compile(fs.readFileSync(input, 'utf-8'), opts).code
       Files.rewriteFileSync(output, js)
       delete global.require.cache[fs.realpathSync(input)]
       delete global.require.cache[fs.realpathSync(output)]
@@ -148,6 +154,8 @@ compile = (reload) ->
       Files.Hash.commit input
 
   ts: ~>
+    ts = require('typescript')
+    opts = {module: ts.ModuleKind.CommonJS, +inlineSources, +inlineSourceMap}
     {Configs} = require './configs'
     tsconfig = Configs.find('tsconfig.json')
     exclude = [x for e in tsconfig?json?exclude ? [] for x in [e, "#e/**"]]
@@ -164,7 +172,7 @@ compile = (reload) ->
     else
       if inputs.length > 0
         ts = require "./typescript"
-        @tsbuild = ts.build inputs, , output-func
+        @tsbuild = ts.build inputs, opts, output-func
     for input in inputs
       Files.Hash.commit input
 
