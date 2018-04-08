@@ -158,7 +158,11 @@ compile = (reload) ->
     opts = {module: ts.ModuleKind.CommonJS, +inlineSources, +inlineSourceMap}
     {Configs} = require './configs'
     tsconfig = Configs.find('tsconfig.json')
-    exclude = [x for e in tsconfig?json?exclude ? [] for x in [e, "#e/**"]]
+    exclude = [].concat ...do
+        for e in tsconfig?json?exclude ? []
+            fpe = path.relative(path.resolve('.'), path.resolve(e, path.dirname(tsconfig.filename)))
+            [fpe, "#fpe/**"]
+    console.log(exclude)
     inputs = Files.find-all "*.ts", , <[**/typings/browser.d.ts **/typings/browser/**]> ++ exclude
     console.log inputs
     output-func = (input, output, text) ->
