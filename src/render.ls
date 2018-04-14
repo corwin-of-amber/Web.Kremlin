@@ -71,9 +71,13 @@ Files =
 
   find-closest: (glob-pattern, start-dir) ->
     dir = start-dir ? @projdir
-    while fs.realpathSync(dir) != '/'
+    topmost-dir = fs.realpathSync(@projdir)
+    while dir?
       matches = glob.sync glob-pattern, cwd: dir
-      if matches.length then return matches[0]
+      if matches.length then return path.join(dir, matches[0])
+      # - go up if possible
+      if fs.realpathSync(dir) in ['/', topmost-dir]
+        break
       dir = path.join(dir, '..')
 
   rewriteFileSync: (filename, content) ->
@@ -162,9 +166,8 @@ compile = (reload) ->
         for e in tsconfig?json?exclude ? []
             fpe = path.relative(path.resolve('.'), path.resolve(e, path.dirname(tsconfig.filename)))
             [fpe, "#fpe/**"]
-    console.log(exclude)
     inputs = Files.find-all "*.ts", , <[**/typings/browser.d.ts **/typings/browser/**]> ++ exclude
-    console.log inputs
+    if inputs.length then console.log "TypeScript build:", inputs, "(config: #{tsconfig?filename ? 'none'})"
     output-func = (input, output, text) ->
       console.log "#{path.basename input} --> #{path.basename output}"
       Files.rewriteFileSync(output, text)
