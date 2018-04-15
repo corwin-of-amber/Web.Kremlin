@@ -97,6 +97,7 @@ compile = (reload) ->
   projdir = Files.projdir = reload.projdir
   incdir = reload.there
   global = reload.framework
+  console = reload.console
 
   ls: ->
     opts = {map: 'embedded'}
@@ -163,11 +164,11 @@ compile = (reload) ->
     {Configs} = require './configs'
     tsconfig = Configs.find('tsconfig.json')
     exclude = [].concat ...do
-        for e in tsconfig?json?exclude ? []
-            fpe = path.relative(path.resolve('.'), path.resolve(e, path.dirname(tsconfig.filename)))
-            [fpe, "#fpe/**"]
+      for e in tsconfig?json?exclude ? []
+        fpe = path.relative(path.resolve('.'), path.resolve(path.dirname(tsconfig.filename), e))
+        [fpe, "#fpe/**"]
     inputs = Files.find-all "*.ts", , <[**/typings/browser.d.ts **/typings/browser/**]> ++ exclude
-    if inputs.length then console.log "TypeScript build:", inputs, "(config: #{tsconfig?filename ? 'none'})"
+      if ..length then console.log "TypeScript build:", .., "(config: #{tsconfig?filename ? 'none'})"
     output-func = (input, output, text) ->
       console.log "#{path.basename input} --> #{path.basename output}"
       Files.rewriteFileSync(output, text)
@@ -179,7 +180,7 @@ compile = (reload) ->
     else
       if inputs.length > 0
         ts = require "./typescript"
-        @tsbuild = ts.build inputs, opts, output-func
+        @tsbuild = ts.build inputs, opts, output-func, console~error
     for input in inputs
       Files.Hash.commit input
 

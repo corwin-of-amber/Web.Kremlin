@@ -52,10 +52,15 @@ var render = require(here+'/src/render');
 
 Reload = {
   framework: framework,
+  projdir: projdir,
+  there: there,
+  console: console,
+
   cd: function(projdirChange) {
     if (this.watcher) console.warn("Reload: too late to change directory (watcher already started)");
     projdir = path.isAbsolute(projdirChange) ? projdirChange 
       : path.join(projdir, projdirChange);
+    this.projdir = projdir;
     fs.lstat(projdir, function(error, stat) {
       if (error) console.warn(`Reload: projdir='${projdir}': ${error.message}`)
       else if (!stat.isDirectory) console.warn(`Reload: projdir='${projdir}': not a directory`)
@@ -81,14 +86,22 @@ Reload = {
     }
     for (var i = 0; i < arguments.length; i++)
       ignore.call(this, arguments[i]);
+  },
+
+  rebuild: function() { _rebuildAndReload(); },
+
+  reboot: function() {
+    /* relinquish module cache */
+    for (k in require.cache) delete require.cache[k]
+    _reload();
   }
 }
 
 
 function _rebuildAndReload() {
-  //console.group("rebuild " + projdir);
-  var nerrors = 0
-  var compile = render.compile({projdir: projdir, there: there, framework: framework});
+  console.group("rebuild " + projdir);
+  var nerrors = 0;
+  var compile = render.compile(Reload);
   try {
     for (k in compile)
       try { compile[k]() }
