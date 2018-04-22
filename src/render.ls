@@ -167,8 +167,12 @@ compile = (reload) ->
         fpe = path.relative(path.resolve('.'), path.resolve(path.dirname(tsconfig.filename), e))
         [fpe, "#fpe/**"]
     inputs = Files.find-all "*.ts", , <[**/typings/browser.d.ts **/typings/browser/**]> ++ exclude
-      if ..length then
-        console.log "TypeScript build:", [path.relative(projdir, ..) for inputs], "(config: #{tsconfig?filename ? 'none'})"
+      if ..length > 0 then
+        console.log "TypeScript build:", [path.relative(projdir, ..) for inputs], "(config: #{path.relative(projdir, tsconfig?filename ? 'none')})"
+        ts = require "./typescript"
+        opts <<< ts.parse-options(tsconfig)
+    cwd = process.cwd!
+    inputs = [path.relative(cwd, ..) for inputs]
     output-func = (input, output, text) ->
       console.log "#{path.basename input} --> #{path.basename output}"
       Files.rewriteFileSync(output, text)

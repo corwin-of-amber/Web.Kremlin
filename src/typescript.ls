@@ -15,6 +15,16 @@ path = require 'path'
 ts = require 'typescript'
 
 
+parse-options = (tsconfig, error-func=console~error) ->
+  if (compilerOptions = tsconfig?json?compilerOptions)?
+    ts.convertCompilerOptionsFromJson(compilerOptions, tsconfig.filename)
+      if ..errors.length
+        error-func "In #{tsconfig.filename};"
+        for ..errors then error-func ..
+      return ..options
+  {}
+
+
 build = (root-filenames, options={ module: ts.ModuleKind.CommonJS }, output-func, error-func=console~error) ->
   /*     : string[]      : ts.CompilerOptions */
   # 'options' has an additional flag wrapWithFunction : bool
@@ -94,4 +104,4 @@ if (require.main == module)
   if (process.argv[2])?
     build([process.argv[2]])
 
-@ <<< {build}
+@ <<< {parse-options, build}
