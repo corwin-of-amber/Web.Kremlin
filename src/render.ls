@@ -2,7 +2,7 @@ fs = require 'fs'
 glob = require('glob')
 path = require('path')
 LiveScript = require('livescript')
-CoffeeScript = require('coffee-script')
+CoffeeScript = require('coffeescript')
 _ = require('underscore')
 
 pkgconfig = require('./lib/pkg-config')
