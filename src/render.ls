@@ -42,7 +42,8 @@ bower-macros = (wd) -> {}
             console.warn("Failed to read #module/bower.json (#bower-json)")
 
 and-ancestors = (dir) -> [dir]
-  while fs.realpathSync(dir = path.join(dir, '..')) != '/'
+  fs-root = path.resolve(dir, '/')
+  while fs.realpathSync(dir = path.join(dir, '..')) != fs-root
     ..push dir
 
 
@@ -70,15 +71,13 @@ Files =
     matches.map -> path.join(start-dir, it)
 
   find-closest: (glob-pattern, start-dir) ->
-    dir = start-dir ? @projdir
     topmost-dir = fs.realpathSync(@projdir)
-    while dir?
+    for dir in and-ancestors(start-dir ? @projdir)
       matches = glob.sync glob-pattern, cwd: dir
       if matches.length then return path.join(dir, matches[0])
-      # - go up if possible
-      if fs.realpathSync(dir) in ['/', topmost-dir]
+      # - don't go up beyond topmost
+      if fs.realpathSync(dir) == topmost-dir
         break
-      dir = path.join(dir, '..')
 
   rewriteFileSync: (filename, content) ->
     # This is done to refrain from tripping other fs watchers
@@ -168,7 +167,8 @@ compile = (reload) ->
         fpe = path.relative(path.resolve('.'), path.resolve(path.dirname(tsconfig.filename), e))
         [fpe, "#fpe/**"]
     inputs = Files.find-all "*.ts", , <[**/typings/browser.d.ts **/typings/browser/**]> ++ exclude
-      if ..length then console.log "TypeScript build:", .., "(config: #{tsconfig?filename ? 'none'})"
+      if ..length then
+        console.log "TypeScript build:", [path.relative(projdir, ..) for inputs], "(config: #{tsconfig?filename ? 'none'})"
     output-func = (input, output, text) ->
       console.log "#{path.basename input} --> #{path.basename output}"
       Files.rewriteFileSync(output, text)
