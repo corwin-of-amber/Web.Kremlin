@@ -123,14 +123,15 @@ function _reload() {
 }
 
 function _makeWatcher() {
-  var watcher = fs.watch(projdir, {persistent: false, recursive: true}, function (event, filename) {
+  var handler;
+  var watcher = fs.watch(projdir, {persistent: false, recursive: true}, 
+                         handler = function (event, filename) {
     if (filename && Reload._ignored(filename)) return ;
-    console.log(filename);
-    process.stdout.write(filename);
-    watcher.close();
+    console.log(`[modified] ${filename}`);
+    watcher.removeAllListeners('change');  // pause watcher
     if (!_rebuildAndReload()) {
       setTimeout(function() {
-        watcher = _makeWatcher(); // restart watcher - notice that this does not update Reload.watcher
+        watcher.on('change', handler);  // resume watcher
       }, 200);
     }
   });
