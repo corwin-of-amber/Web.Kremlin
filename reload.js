@@ -13,9 +13,9 @@ var mode, here, there, projdir;
 if (typeof window == 'undefined') {
     mode = 'cli';
 
-    require('LiveScript');
+    require('livescript');
 
-    here = path.dirname(process.argv[1]);  //  module.filename doe *not* work because it will expand symlinks
+    here = path.dirname(process.argv[1]);  //  module.filename does *not* work because it will expand symlinks
     projdir = process.cwd();
 
     there = path.relative(projdir, here) || ".";
@@ -58,7 +58,7 @@ Reload = {
 
   cd: function(projdirChange) {
     if (this.watcher) console.warn("Reload: too late to change directory (watcher already started)");
-    projdir = path.isAbsolute(projdirChange) ? projdirChange 
+    projdir = path.isAbsolute(projdirChange) ? projdirChange
       : path.join(projdir, projdirChange);
     this.projdir = projdir;
     fs.lstat(projdir, function(error, stat) {
@@ -66,9 +66,9 @@ Reload = {
       else if (!stat.isDirectory) console.warn(`Reload: projdir='${projdir}': not a directory`)
     });
   },
-  _ignored: function(filename) { 
-    return !(this._ignoreFuncs.every(function(f) { 
-      try { return !f(filename); } catch(e) { console.error(e); } 
+  _ignored: function(filename) {
+    return !(this._ignoreFuncs.every(function(f) {
+      try { return !f(filename); } catch(e) { console.error(e); }
     }));
   },
   _ignoreFuncs: [function(filename) { return filename.split(path.sep).some(
@@ -106,7 +106,7 @@ function _rebuildAndReload() {
     for (k in compile)
       try { compile[k]() }
       catch(e) { nerrors++; console.error("Error in builder '" + k + "': " + (e.stack || e.message)); }
-  
+
     var success = (nerrors == 0)
     if (success) _reload();
     else console.error("build failed.");
@@ -121,7 +121,7 @@ function _reload() {
     window.location.reload();
   }
 }
-  
+
 function _makeWatcher() {
   var watcher = fs.watch(projdir, {persistent: false, recursive: true}, function (event, filename) {
     if (filename && Reload._ignored(filename)) return ;
