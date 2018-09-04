@@ -104,7 +104,8 @@ compile = (reload) ->
     for input in inputs
       output = input + ".js"
       console.log "#{path.basename input} --> #{path.basename output}"
-      js = LiveScript.compile(fs.readFileSync(input, 'utf-8'), opts).code
+      _opts = {filename: path.basename(input)} <<< opts
+      js = LiveScript.compile(fs.readFileSync(input, 'utf-8'), _opts).code
       Files.rewriteFileSync(output, js)
       delete global.require.cache[fs.realpathSync(input)]
       delete global.require.cache[fs.realpathSync(output)]
