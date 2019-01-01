@@ -4,6 +4,8 @@
  * files in the working directory change.
  */
 
+var Reload = (function() {
+
 var fs = require('fs')
   , child_process = require('child_process')
   , path = require('path')
@@ -50,7 +52,7 @@ framework.require.extensions['.coffee.js'] = framework.require.extensions['.js']
 
 var render = require(here+'/src/render');
 
-Reload = {
+var Reload = {
   framework: framework,
   projdir: projdir,
   there: there,
@@ -87,6 +89,8 @@ Reload = {
     for (var i = 0; i < arguments.length; i++)
       ignore.call(this, arguments[i]);
   },
+
+  reload: function() { _reload(); },
 
   rebuild: function() { _rebuildAndReload(); },
 
@@ -158,3 +162,7 @@ if (mode == 'cli') {
   console.log("there=" + there);
   _rebuildAndReload();
 }
+
+return Reload;
+})();
+

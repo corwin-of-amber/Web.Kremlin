@@ -28,18 +28,19 @@ mk-tag = (resource) ->
 
 bower-macros = (wd) -> {}
   for dir in and-ancestors wd
-    bower = path.join dir, 'bower_components'
-    if fs.existsSync(bower) && fs.lstatSync(bower).isDirectory!
-      for module in fs.readdirSync(bower)
-        bower-json = path.join bower, module, 'bower.json'
-        if fs.existsSync(bower-json) && fs.lstatSync(bower-json).isFile!
-          try
-            main = JSON.parse fs.readFileSync bower-json, 'utf-8' .main
-              if _.isString .. then main = [..]
-            uri = (resource) -> path.relative(wd, path.join(bower, module, resource))
-            ..[module] = [mk-tag uri x for x in main].join "\n"
-          catch e
-            console.warn("Failed to read #module/bower.json (#bower-json)")
+    for module-subdir in ['bower_components', 'node_modules']
+      bower = path.join dir, module-subdir
+      if fs.existsSync(bower) && fs.lstatSync(bower).isDirectory!
+        for module in fs.readdirSync(bower)
+          bower-json = path.join bower, module, 'bower.json'
+          if fs.existsSync(bower-json) && fs.lstatSync(bower-json).isFile!
+            try
+              main = JSON.parse fs.readFileSync bower-json, 'utf-8' .main
+                if _.isString .. then main = [..]
+              uri = (resource) -> path.relative(wd, path.join(bower, module, resource))
+              ..[module] = [mk-tag uri x for x in main].join "\n"
+            catch e
+              console.warn("Failed to read #module/bower.json (#bower-json)")
 
 and-ancestors = (dir) -> [dir]
   fs-root = path.resolve(dir, '/')
