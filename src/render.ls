@@ -61,7 +61,7 @@ template = (code, settings={}) -> (macros) ->
 Files =
   projdir: '.'
 
-  ignore-patterns: ['**/node_modules/**', '**/public/**']
+  ignore-patterns: ['**/node_modules/**', '**/bower_components/**', '**/public/**']
 
   find-all: (glob-pattern, start-dir, exclude-patterns=[]) ->
     if !start-dir? then start-dir = @projdir

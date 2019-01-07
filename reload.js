@@ -78,10 +78,14 @@ var Reload = {
                  function(filename) { return /^\d+$/.exec(filename) }],
   ignore: function(/*filters...*/) {
     function ignore(filt) {
-      if (filt instanceof RegExp) f = function(filename) { return filename.match(filt); };
+      if (typeof filt === 'string') {
+        render.Files.ignorePatterns.push(filt, filt+'/**');
+        f = function(filename) { return filename == filt; }
+      }
+      else if (filt instanceof RegExp) f = function(filename) { return filename.match(filt); };
       else if (filt.call) f = filt;
       else {
-        console.error("Reload: invalid filter; must be a function or RegExp.");
+        console.error("Reload: invalid filter; must be a string, function or RegExp.");
         return ;
       }
       this._ignoreFuncs.push(f);
