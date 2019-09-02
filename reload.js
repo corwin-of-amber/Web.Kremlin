@@ -58,6 +58,8 @@ var Reload = {
   there: there,
   console: console,
 
+  config: {delay: 0},
+
   cd: function(projdirChange) {
     if (this.watcher) console.warn("Reload: too late to change directory (watcher already started)");
     projdir = path.isAbsolute(projdirChange) ? projdirChange
@@ -96,7 +98,7 @@ var Reload = {
 
   reload: function() { _reload(); },
 
-  rebuild: function() { _rebuildAndReload(); },
+  rebuild: function() { _rebuild() && _reload(); },
 
   reboot: function() {
     /* relinquish module cache */
@@ -106,7 +108,7 @@ var Reload = {
 }
 
 
-function _rebuildAndReload() {
+function _rebuild() {
   console.group("rebuild " + projdir);
   var nerrors = 0;
   var compile = render.compile(Reload);
@@ -116,8 +118,8 @@ function _rebuildAndReload() {
       catch(e) { nerrors++; console.error("Error in builder '" + k + "': " + (e.stack || e.message)); }
 
     var success = (nerrors == 0)
-    if (success) _reload();
-    else console.error("build failed.");
+    if (!success)
+        console.error("build failed.");
     return success;
   }
   finally { console.groupEnd(); }
@@ -131,15 +133,17 @@ function _reload() {
 }
 
 function _makeWatcher() {
-  var handler;
+  var handler, paused = false;
   var watcher = fs.watch(projdir, {persistent: false, recursive: true}, 
                          handler = function (event, filename) {
     if (filename && Reload._ignored(filename)) return ;
     console.log(`[modified] ${filename}`);
-    watcher.removeAllListeners('change');  // pause watcher
-    if (!_rebuildAndReload()) {
+    if (paused) return;
+    paused = true; // pause watcher
+    if (_rebuild()) setTimeout(_reload, Reload.config.delay);
+    else {
       setTimeout(function() {
-        watcher.on('change', handler);  // resume watcher
+        pause = false;  // resume watcher
       }, 200);
     }
   });
@@ -157,6 +161,11 @@ if (mode == 'nw') {
         Reload.watcher = _makeWatcher();  // attach to Reload: for debugging only
       }, 200);
     }
+
+    document.addEventListener('keydown', function(ev) {
+      if (ev.metaKey && ev.keyCode == 82)   // Cmd+R
+        Reload.reload();
+    });
   };
 }
 
@@ -164,7 +173,7 @@ if (mode == 'cli') {
   console.log("projdir=" + projdir);
   console.log("here=" + here);
   console.log("there=" + there);
-  _rebuildAndReload();
+  _rebuild();
 }
 
 return Reload;
