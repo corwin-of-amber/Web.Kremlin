@@ -20,10 +20,10 @@ macros = (PACKAGES, rootPath="", more-tags={}) ->
           ..[tag] = [mk-tag uri v.path, x for x in resources ? []].join "\n"
   d
 
-mk-tag = (resource) ->
+mk-tag = (resource, module-name) ->
   if resource is /\.js$/ then """<script src="#{resource}"></script>"""
   else if resource is /\.css$/ then "<link rel=\"stylesheet\" text=\"text/css\" href=\"#{resource}\">"
-  else console.warn "unrecognized resource, '#resource'"
+  else "<!-- #{module-name}: unrecognized resource, '#resource' -->"
 
 
 bower-macros = (wd) -> {}
@@ -38,9 +38,37 @@ bower-macros = (wd) -> {}
               main = JSON.parse fs.readFileSync bower-json, 'utf-8' .main
                 if _.isString .. then main = [..]
               uri = (resource) -> path.relative(wd, path.join(bower, module, resource))
-              ..[module] = [mk-tag uri x for x in main].join "\n"
+              ..[module] = [mk-tag(uri(x), module) for x in main].join "\n"
             catch e
               console.warn("Failed to read #module/bower.json (#bower-json)")
+
+npm-macros = (wd) -> {}
+  for dir in and-ancestors wd
+    for module-subdir in ['node_modules']
+      module-path = path.join dir, module-subdir
+      if exists-dir(module-path)
+        for module in fs.readdirSync(module-path)
+          package-json = path.join(module-path, module, 'package.json')
+          if exists-file(package-json)
+            try
+              manifest = JSON.parse fs.readFileSync package-json, 'utf-8'
+              uri = (resource) -> path.relative(wd, path.join(module-path, module, resource))
+              if (main = manifest.browser || manifest.main)?
+                if _.isString(main) then main = [main]
+                ..[module] = [mk-tag(uri(x), module) for x in main].join "\n"
+              else
+                ..[module] = "<!-- #{module}: no main file(s) found in #{package-json} -->"
+            catch e
+              ..[module] = "<!-- #{module}: failed to read #{package-json} (#{e}) -->"
+
+
+exists-dir = (filename) ->
+  try fs.statSync(filename).isDirectory!
+  catch => false
+
+exists-file = (filename) ->
+  try fs.statSync(filename).isFile!
+  catch => false
 
 and-ancestors = (dir) -> [dir]
   fs-root = path.resolve(dir, '/')
@@ -129,9 +157,9 @@ compile = (reload) ->
       output = input.replace(/\.in\.html$/, '.html')
       console.log "#{path.basename input} --> #{path.basename output}"
       rootDir = path.relative(path.dirname(output), incdir+'/public')
-      macros_ = macros(pkgconfig.PACKAGES, rootDir) <<< bower-macros(path.dirname(output))
+      macros_ = macros(pkgconfig.PACKAGES, rootDir) <<< bower-macros(path.dirname(output)) <<< npm-macros(path.dirname(output))
       code = fs.readFileSync(input, 'utf-8')
-      Files.rewriteFileSync(output, template(code)(macros_))
+      Files.rewriteFileSync(output, "<!-- !!! -->\n" + template(code)(macros_))
 
   jison: ->
     inputs = Files.find-all "*.jison" .filter Files.Hash~is-dirty

@@ -4,10 +4,10 @@
   "main": "index.html",
   "dependencies": {
     "chokidar": "^1.0.5",
-    "coffeescript": "*",
+    "coffeescript": "^2.4.1",
     "glob": "^5.0.9",
     "jison": "^0.4.18",
-    "livescript": "^1.5.0",
+    "livescript": "^1.6.0",
     "nearley": "^2.2.0",
     "prelude-ls": "^1.1.2",
     "requireg": "^0.1.5",
