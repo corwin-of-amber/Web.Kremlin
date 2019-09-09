@@ -5,3 +5,4 @@ node_modules
 app.db
 /index.html
 /src/browse-sqlite.html
+/src/old
