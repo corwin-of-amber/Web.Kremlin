@@ -143,7 +143,7 @@ function _makeWatcher() {
     if (_rebuild()) setTimeout(_reload, Reload.config.delay);
     else {
       setTimeout(function() {
-        pause = false;  // resume watcher
+        paused = false;  // resume watcher
       }, 200);
     }
   });
