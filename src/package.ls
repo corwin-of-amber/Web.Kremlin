@@ -24,7 +24,7 @@ mk-tag = (resource, module-name) ->
 
 
 class Package
-  (@name, @path, @main, @origin) ->
+  (@name, @path, @main=[], @origin) ->
     if !_.isArray(@main) then @main = [@main]
 
   uri: (resource) ->
@@ -33,7 +33,10 @@ class Package
   exists-file: (resource) -> exists-file(path.join(@path, resource))
 
   toString: ->
-    @mk-tags(@main ++ @_css-autodetect!)
+    if @main.length > 0
+      @mk-tags(@main ++ @_css-autodetect!)
+    else
+      "<!-- #{@name}: no main file(s) found in #{@path} -->"
 
   _css-autodetect: ->  # sneaky!
     [..replace(/[.]js$/, '.css') for @main].filter(@~exists-file)
@@ -56,10 +59,7 @@ bower-packages = (wd) -> {}
           if exists-file(bower-json)
             try
               main = JSON.parse fs.readFileSync bower-json, 'utf-8' .main
-              if main
-                ..[module] = new Package(module, pkg-dir, main, wd)
-              else
-                ..[module] = "<!-- #{module}: no main file(s) found in #{package-json} -->"
+              ..[module] = new Package(module, pkg-dir, main, wd)
             catch e
               ..[module] = "<!-- #{module}: failed to read #{bower-json} (#{e}) -->"
 
@@ -76,10 +76,7 @@ npm-packages = (wd) -> {}
               as-resource = -> if _.isString(it) || _.isArray(it) then it
               manifest = JSON.parse fs.readFileSync package-json, 'utf-8'
                 main = as-resource(..browser) || as-resource(..main)
-              if main
-                ..[module] = new Package(module, pkg-dir, main, wd)
-              else
-                ..[module] = "<!-- #{module}: no main file(s) found in #{package-json} -->"
+              ..[module] = new Package(module, pkg-dir, main, wd)
             catch e
               ..[module] = "<!-- #{module}: failed to read #{package-json} (#{e}) -->"
 
