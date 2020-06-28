@@ -1,0 +1,36 @@
+li.treeview {
+    list-style: none;
+    position: relative;
+    min-height: 1em;
+}
+li.treeview ul {
+    padding-left: 0.75rem;
+    margin-top: 0;
+}
+li.treeview li.treeview > span.treeview__handle {
+    position: absolute;
+    left: -0.75em;
+    color: #888;
+    cursor: pointer;
+}
+li.treeview li.treeview > span.treeview__handle:hover {
+    color: #333;
+}
+li.treeview li.treeview > span.treeview__handle::before {
+    content: "‣";
+    width: 0.75em;
+    text-align: center;
+    display: inline-block;
+}
+li.treeview li.treeview.treeview__expand > span.treeview__handle::before {
+    content: "▾";
+    font-size: 90%;
+}
+li.treeview li.treeview.treeview__leaf > span.treeview__handle::before {
+    content: "▹";
+    font-size: 90%;
+}
+
+li.treeview:not(.treeview__expand) > ul.treeview__children {
+    display: none;
+}
