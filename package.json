@@ -26,7 +26,9 @@
     "start": "nw .&"
   },
   "devDependencies": {
+    "@types/mkdirp": "^1.0.1",
     "@types/node": "^14.0.13",
+    "@vue/cli": "^4.4.6",
     "@vue/component-compiler-utils": "^3.1.2",
     "vue-template-compiler": "^2.6.11"
   }

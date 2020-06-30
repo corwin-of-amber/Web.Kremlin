@@ -27,12 +27,15 @@ class ModuleDepNavigator {
         this.view.root = {module: main};
 
         var m = ac.visitModuleRef(main);
-        this.view.children = m.deps.map(x => ({root: {module: x}}))
+        this.view.children = m.deps.map(x => ({root: {module: x.target}}))
 
         this.view.$on('action', (ev) => {
-            var m = ac.visitModuleRef(ev.module);
-            console.log(m);
-            ev.subtree.children.splice(0, Infinity, ...m.deps.map(x => ({root: {module: x}})));
+            if (ev.subtree.children.length === 0) {
+                var m = ac.visitModuleRef(ev.module);
+                console.log(m);
+                ev.subtree.children.splice(0, Infinity,
+                        ...m.deps.map(x => ({root: {module: x}})));
+            }
         });
     }
 }
