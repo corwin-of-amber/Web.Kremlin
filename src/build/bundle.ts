@@ -4,7 +4,7 @@ import path from 'path';
 
 import * as acorn from 'acorn';
 import * as walk from 'acorn-walk';
-import { DummyCompiler } from './compile';
+import { Transpiler } from './transpile';
 import './ui/introspect';
 import { assert } from 'console';
 
@@ -126,7 +126,7 @@ class AcornCrawl {
         intrinsic: Map<string, ModuleRef>
         visited: Map<string, VisitResult>
     }
-    compilers: DummyCompiler[] = []
+    compilers: Transpiler[] = []
 
     constructor() {
         this.modules = {intrinsic: new Map, visited: new Map};
@@ -148,16 +148,18 @@ class AcornCrawl {
     }
 
     visit(filename: string, opts: VisitOptions = {}): VisitResult {
-        console.log(`%cvisit ${filename}`, 'color: #0000ff');
+        console.log(`%cvisit ${filename}`, 'color: #8080ff');
         if (filename.match(/\.js$/)) return this.visitJS(filename, opts);
         else {
             opts = {basedir: path.dirname(filename), ...opts};
             for (let cmplr of this.compilers) {
-                try {
-                    var c = cmplr.compileFile(filename)
+                if (cmplr.match(filename)) {
+                    try {
+                        var c = cmplr.compileFile(filename)
+                    }
+                    catch (e) { return this.visitLeaf(new StubModule(filename, e)); }
+                    return this.visitModuleRef(c, opts);
                 }
-                catch (e) { return this.visitLeaf(new StubModule(filename, e)); }
-                return this.visitModuleRef(c, opts);
             }
             throw new Error(`no compiler for '${filename}'`);
         }
@@ -219,6 +221,7 @@ class AcornJSModule implements CompilationUnit {
 
     imports: AcornTypes.ImportDeclaration[]
     requires: RequireInvocation[]
+    exports: AcornTypes.ExportDeclaration[]
 
     constructor(text: string, dir?: string) {
         this.text = text;
@@ -229,13 +232,11 @@ class AcornJSModule implements CompilationUnit {
     extractImports() {
         this.imports = [];
         this.requires = [];
+        this.exports = [];
         walk.full(this.ast, (node) => {
-            if (this.isImport(node)) {
-                this.imports.push(node);
-            }
-            else if (this.isRequire(node)) {
-                this.requires.push(node);
-            }
+            if      (this.isImport(node))   this.imports.push(node);
+            else if (this.isRequire(node))  this.requires.push(node);
+            else if (this.isExport(node))   this.exports.push(node);
         });
     }
 
@@ -250,13 +251,24 @@ class AcornJSModule implements CompilationUnit {
                node.arguments.length == 1 && is(node.arguments[0], 'Literal');
     }
 
+    isExport(node: acorn.Node): node is AcornTypes.ExportDeclaration {
+        return AcornUtils.is(node, 'ExportNamedDeclaration') || AcornUtils.is(node, 'ExportDefaultDeclaration');
+    }
+
     process(key: string, deps: ModuleDependency[]) {
-        var prog = this.interpolate(this.text,
-            this.imports.map(imp => {
+        var imports = this.imports.map(imp => {
                 var dep = deps.find(d => d.reference === imp);
                 return dep && {...imp, text: this.processImport(imp, dep.target)};
-            }));
-        return `kremlin['${key}'] = () => {${prog}};`;
+            }),
+            requires = this.requires.map(req => {
+                var dep = deps.find(d => d.reference === req);
+                return dep && {...req, text: this.processRequire(req, dep.target)};
+            }),
+            exports = this.exports.map(exp => {
+                return {...exp, text: this.processExport(exp)};
+            }),
+            prog = this.interpolate(this.text, [].concat(imports, requires, exports));
+        return `kremlin.m['${key}'] = (module,exports) => {${prog}};`;
     }
 
     processImport(imp: AcornTypes.ImportDeclaration, ref: ModuleRef) {
@@ -269,7 +281,6 @@ class AcornJSModule implements CompilationUnit {
         else {
             var locals = [];
             for (let impspec of imp.specifiers) {
-                console.log(impspec);
                 assert(impspec.type === 'ImportSpecifier');
                 let local = impspec.local.name, imported = impspec.imported.name;
                 locals.push((local == imported) ? local : `${imported}:${local}`);
@@ -277,7 +288,30 @@ class AcornJSModule implements CompilationUnit {
             lhs = `{${locals}}`;
         }
         var key = ref.normalize().canonicalName;
-        return `let ${lhs} = require('${key}');`;
+        return `let ${lhs} = kremlin.require('${key}');`;
+    }
+
+    processRequire(req: RequireInvocation, ref: ModuleRef) {
+        var key = ref.normalize().canonicalName;
+        return `kremlin.require('${key}')`;
+    }
+
+    processExport(exp: AcornTypes.ExportDeclaration) {
+        var locals = [], rhs: string, is = AcornUtils.is;
+        if (is(exp, 'ExportNamedDeclaration')) {
+            for (let expspec of exp.specifiers) {
+                assert(expspec.type === 'ExportSpecifier');
+                let local = expspec.local.name, exported = expspec.exported.name;
+                locals.push((local == exported) ? local : `${local}:${exported}`);
+            }
+            rhs = `{${locals}}`;
+        }
+        else if (is(exp, 'ExportDefaultDeclaration')) {
+            rhs = this.text.substring(exp.declaration.start, exp.declaration.end);
+        }
+        else throw new Error('invalid export');
+        console.log(exp);
+        return `module.exports = ${rhs};`;
     }
 
     interpolate(inp: string, elements: {start: number, end: number, text: string}[]) {
@@ -319,6 +353,26 @@ declare namespace AcornTypes {
         imported?: Identifier
     }
 
+    class ExportDeclaration extends acorn.Node {
+        type: "ExportNamedDeclaration" | "ExportDefaultDeclaration"
+    }
+
+    class ExportNamedDeclaration extends ExportDeclaration {
+        type: "ExportNamedDeclaration"
+        source?: Literal
+        specifiers: ExportSpecifier[]
+    }
+
+    class ExportDefaultDeclaration extends ExportDeclaration {
+        type: "ExportDefaultDeclaration"
+        declaration: acorn.Node
+    }
+
+    class ExportSpecifier extends acorn.Node {
+        local: Identifier
+        exported: Identifier
+    }
+
     class CallExpression extends acorn.Node {
         type: "CallExpression"
         callee: acorn.Node
@@ -335,6 +389,8 @@ namespace AcornUtils {
     export function is(node: acorn.Node, type: "ImportSpecifier"): node is AcornTypes.ImportSpecifier
     export function is(node: acorn.Node, type: "CallExpression"): node is AcornTypes.CallExpression
     export function is(node: acorn.Node, type: "Identifier"): node is AcornTypes.Identifier
+    export function is(node: acorn.Node, type: "ExportNamedDeclaration"): node is AcornTypes.ExportNamedDeclaration
+    export function is(node: acorn.Node, type: "ExportDefaultDeclaration"): node is AcornTypes.ExportDefaultDeclaration
     export function is(node: acorn.Node, type: string): boolean
 
     export function is(node: acorn.Node, type: string) { return node.type === type; }
@@ -382,7 +438,7 @@ class Deployment {
 
     writeFileSync(filename: string, content: string) {
         var outp = path.join(this.outDir, filename);
-        console.log(outp);
+        console.log(`%c> ${outp}`, "color: #ff8080");
         mkdirp.sync(path.dirname(outp));
         fs.writeFileSync(outp, content);
         return new SourceFile(outp);

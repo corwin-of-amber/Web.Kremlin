@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <script>
+            kremlin = {m: {}, loaded: {}, require(k) {
+                var l = this.loaded[k];
+                if (l) return l.exports || {};
+                else {
+                    console.log(k);
+                    var mod = {exports: {}};
+                    this.loaded[k] = mod;
+                    this.m[k](mod, mod.exports);
+                    return mod.exports || {};
+                }
+            }};
+            for (let m of ['path', 'fs', 'zlib', 'console'])
+                kremlin.loaded[`node://${m}`] = {exports: require(m)};
+            kremlin.loaded['stub://console'] = {exports: console};
+            kremlin.loaded['src/build/ui/components/tree.css'] = {};
+        </script>
+        <script src="build/kremlin/testbed.ts"></script>
+        <script src="build/kremlin/bundle.ts"></script>
+        <script src="build/kremlin/introspect.ts"></script>
+        <script src="build/kremlin/transpile.ts"></script>
+        <script src="build/kremlin/jquery.js"></script>
+        <script src="build/kremlin/acorn.js"></script>
+        <script src="build/kremlin/walk.js"></script>
+        <script src="build/kremlin/vue.runtime.common.js"></script>
+        <script src="build/kremlin/vue.runtime.common.dev.js"></script>
+        <script src="build/kremlin/tree.vue"></script>
+        <script src="build/kremlin/module-node.vue"></script>
+    </head>
+</html>

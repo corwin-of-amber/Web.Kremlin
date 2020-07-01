@@ -34,7 +34,7 @@ class ModuleDepNavigator {
                 var m = ac.visitModuleRef(ev.module);
                 console.log(m);
                 ev.subtree.children.splice(0, Infinity,
-                        ...m.deps.map(x => ({root: {module: x}})));
+                        ...m.deps.map(x => ({root: {module: x.target}})));
             }
         });
     }
