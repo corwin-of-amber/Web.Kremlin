@@ -5,6 +5,7 @@
   "dependencies": {
     "@vue/component-compiler": "^4.2.3",
     "acorn": "^7.3.1",
+    "acorn-globals": "file:packages/acorn-globals",
     "acorn-walk": "^7.2.0",
     "chokidar": "^3.2.1",
     "coffeescript": "^2.4.1",

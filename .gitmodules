@@ -1,0 +1,6 @@
+[submodule "package/acorn-globals"]
+	path = package/acorn-globals
+	url = git@github.com:LongTengDao-fork-B/acorn-globals.git
+[submodule "packages/acorn-globals"]
+	path = packages/acorn-globals
+	url = git@github.com:LongTengDao-fork-B/acorn-globals.git

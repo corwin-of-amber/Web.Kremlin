@@ -1,33 +1,40 @@
 <!DOCTYPE html>
 <html>
     <head>
+        <meta charset="utf-8">
         <script>
-            kremlin = {m: {}, loaded: {}, require(k) {
-                var l = this.loaded[k];
-                if (l) return l.exports || {};
-                else {
-                    console.log(k);
-                    var mod = {exports: {}};
-                    this.loaded[k] = mod;
-                    this.m[k](mod, mod.exports);
-                    return mod.exports || {};
+            kremlin = {m: {}, loaded: {},
+                require(k) {
+                    var l = this.loaded[k];
+                    if (l) return l.exports || {};
+                    else {
+                        console.log(k);
+                        var mod = {exports: {}};
+                        this.loaded[k] = mod;
+                        this.m[k](mod, mod.exports);
+                        return mod.exports || {};
+                    }
+                },
+                export(m, d) {
+                    m.exports = Object.assign(m.exports || {}, d);
                 }
-            }};
-            for (let m of ['path', 'fs', 'zlib', 'console'])
+            };
+            for (let m of ['path', 'fs', 'zlib', 'console', 'assert'])
                 kremlin.loaded[`node://${m}`] = {exports: require(m)};
-            kremlin.loaded['stub://console'] = {exports: console};
             kremlin.loaded['src/build/ui/components/tree.css'] = {};
         </script>
-        <script src="build/kremlin/testbed.ts"></script>
-        <script src="build/kremlin/bundle.ts"></script>
-        <script src="build/kremlin/introspect.ts"></script>
-        <script src="build/kremlin/transpile.ts"></script>
+        <script src="build/kremlin/testbed.ts.js"></script>
+        <script src="build/kremlin/bundle.ts.js"></script>
+        <script src="build/kremlin/introspect.ts.js"></script>
+        <script src="build/kremlin/transpile.ts.js"></script>
         <script src="build/kremlin/jquery.js"></script>
         <script src="build/kremlin/acorn.js"></script>
         <script src="build/kremlin/walk.js"></script>
         <script src="build/kremlin/vue.runtime.common.js"></script>
         <script src="build/kremlin/vue.runtime.common.dev.js"></script>
-        <script src="build/kremlin/tree.vue"></script>
-        <script src="build/kremlin/module-node.vue"></script>
+        <script src="build/kremlin/tree.vue.js"></script>
+        <script src="build/kremlin/module-node.vue.js"></script>
+        <script src="build/kremlin/index.js"></script>  <!-- oops -->
+        <link rel="stylesheet" type="text/css" href="src/build/ui/components/tree.css">
     </head>
 </html>

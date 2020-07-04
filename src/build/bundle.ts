@@ -1,12 +1,13 @@
 const fs = (0||require)('fs'),   // use native fs
       mkdirp = (0||require)('mkdirp');
 import path from 'path';
+import assert from 'assert';
 
 import * as acorn from 'acorn';
 import * as walk from 'acorn-walk';
+import acornGlobals from 'acorn-globals';
 import { Transpiler } from './transpile';
 import './ui/introspect';
-import { assert } from 'console';
 
 
 
@@ -210,6 +211,7 @@ type VisitResult = {origin?: ModuleRef, compiled: CompilationUnit, deps: ModuleD
 
 
 interface CompilationUnit {
+    contentType: string
     process(key: string, deps: ModuleDependency[]): string
 }
 
@@ -219,9 +221,16 @@ class AcornJSModule implements CompilationUnit {
     text: string
     ast: acorn.Node
 
+    contentType = 'js'
+
     imports: AcornTypes.ImportDeclaration[]
     requires: RequireInvocation[]
     exports: AcornTypes.ExportDeclaration[]
+
+    vars: {
+        globals: Map<string, AcornTypes.Identifier[]>
+        used: Set<string>
+    }
 
     constructor(text: string, dir?: string) {
         this.text = text;
@@ -240,6 +249,31 @@ class AcornJSModule implements CompilationUnit {
         });
     }
 
+    extractVars() {
+        this.vars = {
+            globals: this._extractGlobals(),
+            used: this._extractVarNames()
+        };
+    }
+
+    _extractGlobals() {
+        assert(AcornUtils.is(this.ast, 'Program'));
+        var prog = Object.assign({}, this.ast,   // strip imports so they don't count as locals
+            {body: this.ast.body.filter(x => !this.isImport(x))});
+        var globals = new Map;
+        for (let {name, nodes} of acornGlobals(prog))
+            globals.set(name, nodes);
+        return globals;
+    }
+
+    _extractVarNames() {
+        var s: Set<string> = new Set;
+        walk.full(this.ast, u => {
+            if (AcornUtils.is(u, "Identifier")) s.add(u.name);
+        });
+        return s;
+    }
+
     isImport(node: acorn.Node): node is AcornTypes.ImportDeclaration {
         return AcornUtils.is(node, 'ImportDeclaration');
     }
@@ -256,23 +290,28 @@ class AcornJSModule implements CompilationUnit {
     }
 
     process(key: string, deps: ModuleDependency[]) {
+        if (!this.vars) this.extractVars();
+
         var imports = this.imports.map(imp => {
                 var dep = deps.find(d => d.reference === imp);
-                return dep && {...imp, text: this.processImport(imp, dep.target)};
+                return dep ? this.processImport(imp, dep.target) : [];
             }),
             requires = this.requires.map(req => {
                 var dep = deps.find(d => d.reference === req);
-                return dep && {...req, text: this.processRequire(req, dep.target)};
+                return dep ? [this.processRequire(req, dep.target)] : [];
             }),
-            exports = this.exports.map(exp => {
-                return {...exp, text: this.processExport(exp)};
-            }),
-            prog = this.interpolate(this.text, [].concat(imports, requires, exports));
+            exports = this.exports.map(exp => [this.processExport(exp)]),
+
+            prog = this.interpolate(this.text, 
+                [].concat(...imports, ...requires, ...exports)
+                .map(([node, text]) => ({...node, text})));
+
         return `kremlin.m['${key}'] = (module,exports) => {${prog}};`;
     }
 
     processImport(imp: AcornTypes.ImportDeclaration, ref: ModuleRef) {
-        var lhs: string;
+        var lhs: string, refs = [],
+            key = ref.normalize().canonicalName;
         if (imp.specifiers.length == 1 && 
             (imp.specifiers[0].type === 'ImportDefaultSpecifier'
              || imp.specifiers[0].type === 'ImportNamespaceSpecifier')) {
@@ -280,20 +319,22 @@ class AcornJSModule implements CompilationUnit {
         }
         else {
             var locals = [];
+            lhs = this._freshVar();
             for (let impspec of imp.specifiers) {
                 assert(impspec.type === 'ImportSpecifier');
                 let local = impspec.local.name, imported = impspec.imported.name;
                 locals.push((local == imported) ? local : `${imported}:${local}`);
+                for (let refnode of this.vars.globals.get(local) || []) {
+                    refs.push([refnode, `${lhs}.${imported}`]);
+                }
             }
-            lhs = `{${locals}}`;
         }
-        var key = ref.normalize().canonicalName;
-        return `let ${lhs} = kremlin.require('${key}');`;
+        return [[imp, `let ${lhs} = kremlin.require('${key}');`]].concat(refs);
     }
 
     processRequire(req: RequireInvocation, ref: ModuleRef) {
         var key = ref.normalize().canonicalName;
-        return `kremlin.require('${key}')`;
+        return [req, `kremlin.require('${key}')`];
     }
 
     processExport(exp: AcornTypes.ExportDeclaration) {
@@ -309,9 +350,8 @@ class AcornJSModule implements CompilationUnit {
         else if (is(exp, 'ExportDefaultDeclaration')) {
             rhs = this.text.substring(exp.declaration.start, exp.declaration.end);
         }
-        else throw new Error('invalid export');
-        console.log(exp);
-        return `module.exports = ${rhs};`;
+        else throw new Error(`invalid export '${exp.type}'`);
+        return [exp, `kremlin.export(module, ${rhs});`];
     }
 
     interpolate(inp: string, elements: {start: number, end: number, text: string}[]) {
@@ -321,6 +361,17 @@ class AcornJSModule implements CompilationUnit {
             i = el.end;
         }
         return out + inp.substring(i);
+    }
+
+    _freshVar(base = "") {
+        if (!this.vars) this.extractVars();
+        for (let i = 0; ; i++) {
+            var nm = `${base}_${i}`;
+            if (!this.vars.used.has(nm)) {
+                this.vars.used.add(nm);
+                return nm;
+            }
+        }
     }
 
     static fromFile(filename: string) {
@@ -336,6 +387,10 @@ declare class RequireInvocation extends AcornTypes.CallExpression {
 
 
 declare namespace AcornTypes {
+
+    class Program extends acorn.Node {
+        body: acorn.Node[]
+    }
 
     class Literal extends acorn.Node {
         value: string
@@ -386,6 +441,7 @@ declare namespace AcornTypes {
 }
 
 namespace AcornUtils {
+    export function is(node: acorn.Node, type: "Program"): node is AcornTypes.Program
     export function is(node: acorn.Node, type: "ImportSpecifier"): node is AcornTypes.ImportSpecifier
     export function is(node: acorn.Node, type: "CallExpression"): node is AcornTypes.CallExpression
     export function is(node: acorn.Node, type: "Identifier"): node is AcornTypes.Identifier
@@ -408,11 +464,12 @@ class DeployModule {
         this.deps = deps;
     }
 
-    save(deploy: Deployment): ModuleRef {
-        if (this.compiled) {
-            return deploy.writeFileSync(this.output,
-                this.compiled.process(this.ref.canonicalName, this.deps));
-        }
+    get targets(): {body: string, contentType: string}[] {
+        if (this.compiled)
+            return [{body: this.compiled.process(this.ref.canonicalName, this.deps), 
+                     contentType: this.compiled.contentType}];
+        else
+            return [];
     }
 
     get output(): string {
@@ -428,12 +485,36 @@ class DeployModule {
 
 class Deployment {
     outDir: string
+    files: Set<string> = new Set
+
     constructor(outDir: string) { this.outDir = outDir; }
 
-    add(dmod: DeployModule) { return dmod.save(this); }
+    add(dmod: DeployModule) {
+        var outfn = dmod.output;
+        for (let {body, contentType} of dmod.targets) {
+            this.writeFileSync(this.newFilename(outfn, contentType), body);
+        }
+    }
 
     addVisitResult(vis: VisitResult) {
         return this.add(new DeployModule(vis.origin.normalize(), vis.compiled, vis.deps));
+    }
+
+    newFilename(filename: string, contentType: string) {
+        var ext = `.${contentType}`;
+        filename = this.withoutExt(filename, ext);
+        var cand = filename, i = 0;
+        while (this.files.has(cand)) {
+            cand = `${filename}-${i}`; i++;
+        }
+        return this.withExt(cand, ext);
+    }
+
+    withExt(filename: string, ext: string) {
+        return filename.endsWith(ext) ? filename : filename + ext;
+    }
+    withoutExt(filename: string, ext: string) {
+        return filename.endsWith(ext) ? filename.slice(0, -ext.length) : filename;
     }
 
     writeFileSync(filename: string, content: string) {
@@ -441,6 +522,7 @@ class Deployment {
         console.log(`%c> ${outp}`, "color: #ff8080");
         mkdirp.sync(path.dirname(outp));
         fs.writeFileSync(outp, content);
+        this.files.add(filename);
         return new SourceFile(outp);
     }
 }
