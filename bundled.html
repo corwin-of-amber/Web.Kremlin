@@ -2,25 +2,8 @@
 <html>
     <head>
         <meta charset="utf-8">
+        <script src="src/build/include.js"></script>
         <script>
-            kremlin = {m: {}, loaded: {},
-                require(k) {
-                    var l = this.loaded[k];
-                    if (l) return l.exports || {};
-                    else {
-                        console.log(k);
-                        var mod = {exports: {}};
-                        this.loaded[k] = mod;
-                        this.m[k](mod, mod.exports);
-                        return mod.exports || {};
-                    }
-                },
-                export(m, d) {
-                    m.exports = Object.assign(m.exports || {}, d);
-                }
-            };
-            for (let m of ['path', 'fs', 'zlib', 'console', 'assert'])
-                kremlin.loaded[`node://${m}`] = {exports: require(m)};
             kremlin.loaded['src/build/ui/components/tree.css'] = {};
         </script>
         <script src="build/kremlin/testbed.ts.js"></script>

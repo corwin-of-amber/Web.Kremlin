@@ -1,12 +1,13 @@
 import $ from 'jquery';
-import { AcornCrawl, SearchPath, SourceFile, Deployment } from './bundle';
+import { AcornCrawl, NodeJSRuntime, SearchPath, SourceFile } from './bundle';
+import { Deployment } from './deploy';
 import { DummyCompiler, VueCompiler } from './transpile';
 import { ModuleDepNavigator } from './ui/introspect';
 
 
 
 async function testbed() {
-    var ac = new AcornCrawl();
+    var ac = new AcornCrawl([new NodeJSRuntime()]);
 
     var compilers = [new VueCompiler(),
                      new DummyCompiler(new SearchPath(['build'], []))],
@@ -14,7 +15,7 @@ async function testbed() {
 
     ac.compilers.push(...compilers);
 
-    var entryp = 'src/build/testbed.ts', //'/Users/corwin/var/workspace/Web.Author/src/hub.ls',
+    var entryp = /*'src/build/testbed.ts', */'/Users/corwin/var/workspace/Web.Author/src/hub.ls',
         m = ac.visitModuleRef(new SourceFile(entryp));
 
     console.log(m);
@@ -36,7 +37,13 @@ async function testbed() {
         deploy.addVisitResult(m);
     }
 
-    Object.assign(window, {ac, m, nav});
+    for (let m of ac.modules.visited.values()) {
+        if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
+    }
+
+    deploy.makeIndexHtml();
+
+    Object.assign(window, {ac, m, nav, deploy});
 }
 
 testbed();

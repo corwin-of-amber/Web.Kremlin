@@ -25,6 +25,7 @@
   },
   "scripts": {
     "install": "node reload.js",
+    "watch": "parcel watch --hmr-hostname=localhost --public-url=. index.html",
     "start": "nw .&"
   },
   "devDependencies": {

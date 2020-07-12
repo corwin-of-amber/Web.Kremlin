@@ -121,6 +121,19 @@ class FileNotFound extends ModuleResolutionError {
 }
 
 
+class Library {
+    modules: (ModuleRef & {name: string})[] = []
+}
+
+class NodeJSRuntime extends Library {
+    constructor() {
+        super();
+        this.modules = ['fs', 'path', 'events', 'assert', 'zlib', 'stream', 'util']
+            .map(m => new NodeModule(m));
+    }
+}
+
+
 class AcornCrawl {
 
     modules: {
@@ -129,10 +142,11 @@ class AcornCrawl {
     }
     compilers: Transpiler[] = []
 
-    constructor() {
+    constructor(infra: Library[] = []) {
         this.modules = {intrinsic: new Map, visited: new Map};
-        for (let m of ['fs', 'path', 'events', 'assert', 'zlib'])
-            this.modules.intrinsic.set(m, new NodeModule(m));
+        for (let lib of infra)
+            for (let m of lib.modules)
+                this.modules.intrinsic.set(m.name, m);
     }
 
     collect(entryPoints: ModuleRef[]) {
@@ -213,6 +227,31 @@ type VisitResult = {origin?: ModuleRef, compiled: CompilationUnit, deps: ModuleD
 interface CompilationUnit {
     contentType: string
     process(key: string, deps: ModuleDependency[]): string
+}
+
+
+class PassThroughModule implements CompilationUnit {
+    contentType: string
+    content: string
+
+    constructor(content: string, contentType: string) {
+        this.contentType = contentType;
+        this.content = content;
+    }
+
+    process(key: string, deps: ModuleDependency[]) { return this.content; }
+
+    static fromSourceFile(m: SourceFile) {
+        return new PassThroughModule(
+            fs.readFileSync(m.filename, 'utf-8'),
+            this.guessContentType(m));
+    }
+
+    static guessContentType(m: SourceFile) {
+        if (m.filename.endsWith('.js')) return 'js';
+        else if (m.filename.endsWith('.css')) return 'css';
+        else return 'plain';
+    }
 }
 
 
@@ -453,81 +492,7 @@ namespace AcornUtils {
 }
 
 
-class DeployModule {
-    ref: ModuleRef
-    compiled: CompilationUnit
-    deps: ModuleDependency[]
 
-    constructor(ref: ModuleRef, compiled: CompilationUnit, deps: ModuleDependency[]) {
-        this.ref = ref;
-        this.compiled = compiled;
-        this.deps = deps;
-    }
-
-    get targets(): {body: string, contentType: string}[] {
-        if (this.compiled)
-            return [{body: this.compiled.process(this.ref.canonicalName, this.deps), 
-                     contentType: this.compiled.contentType}];
-        else
-            return [];
-    }
-
-    get output(): string {
-        if (this.ref instanceof PackageDir)
-            assert(0);
-        else if (this.ref instanceof SourceFile)
-            return path.basename(this.ref.filename);
-        else if (this.ref instanceof StubModule || this.ref instanceof NodeModule)
-            return path.join('stubs', this.ref['name']);
-    }
-}
-
-
-class Deployment {
-    outDir: string
-    files: Set<string> = new Set
-
-    constructor(outDir: string) { this.outDir = outDir; }
-
-    add(dmod: DeployModule) {
-        var outfn = dmod.output;
-        for (let {body, contentType} of dmod.targets) {
-            this.writeFileSync(this.newFilename(outfn, contentType), body);
-        }
-    }
-
-    addVisitResult(vis: VisitResult) {
-        return this.add(new DeployModule(vis.origin.normalize(), vis.compiled, vis.deps));
-    }
-
-    newFilename(filename: string, contentType: string) {
-        var ext = `.${contentType}`;
-        filename = this.withoutExt(filename, ext);
-        var cand = filename, i = 0;
-        while (this.files.has(cand)) {
-            cand = `${filename}-${i}`; i++;
-        }
-        return this.withExt(cand, ext);
-    }
-
-    withExt(filename: string, ext: string) {
-        return filename.endsWith(ext) ? filename : filename + ext;
-    }
-    withoutExt(filename: string, ext: string) {
-        return filename.endsWith(ext) ? filename.slice(0, -ext.length) : filename;
-    }
-
-    writeFileSync(filename: string, content: string) {
-        var outp = path.join(this.outDir, filename);
-        console.log(`%c> ${outp}`, "color: #ff8080");
-        mkdirp.sync(path.dirname(outp));
-        fs.writeFileSync(outp, content);
-        this.files.add(filename);
-        return new SourceFile(outp);
-    }
-}
-
-
-
-export { AcornCrawl, SearchPath, ModuleRef, SourceFile, PackageDir,
-         VisitOptions, VisitResult, Deployment }
+export { AcornCrawl, SearchPath, ModuleRef, SourceFile, PackageDir, StubModule, NodeModule,
+         Library, NodeJSRuntime, ModuleDependency, PassThroughModule,
+         VisitOptions, VisitResult, CompilationUnit }
