@@ -1,10 +1,11 @@
 const fs = (0||require)('fs'),   // use native fs
-      mkdirp = (0||require)('mkdirp');
+      mkdirp = (0||require)('mkdirp'),
+      findUp = (0||require)('find-up');
 import path from 'path';
 import assert from 'assert';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          ModuleDependency, CompilationUnit, PassThroughModule,
-         VisitResult } from './bundle';
+         VisitResult, HtmlModule} from './bundle';
 
 
 
@@ -44,6 +45,8 @@ class Deployment {
     modules: {dmod: DeployModule, targets: SourceFile[]}[] = []
     include: SourceFile[]
 
+    html: CompilationUnit
+
     constructor(outDir: string) { this.outDir = outDir; }
 
     add(dmod: DeployModule) {
@@ -56,8 +59,8 @@ class Deployment {
         this.add(new DeployModule(vis.origin.normalize(), vis.compiled, vis.deps));
     }
 
-    addInclude() {
-        var ref = new SourceFile('src/build/include.js'),
+    addInclude(fn: string = 'src/build/include.js') {
+        var ref = new SourceFile(findUp.sync(fn, {cwd: __dirname})),
             ptm = PassThroughModule.fromSourceFile(ref);
         this.include = this.write(new DeployModule(ref, ptm, []));
     }
@@ -94,20 +97,32 @@ class Deployment {
         return new SourceFile(outp);
     }
 
-    makeIndexHtml() {
+    makeIndexHtml(entry?: ModuleRef) {
         if (!this.include) this.addInclude();
-        var targets = this.include.concat(...this.modules.map(m => m.targets)),
-            tags = targets.map(sf => this.makeIncludeTag(sf)),
-            html = `<!DOCTYPE html><html><head><meta charset="utf-8">${tags.join('\n')}
-                    </head></html>`;
-        return this.writeFileSync(this.newFilename('bundled.html', 'html'), html);
+        var filename = this.newFilename('bundled.html', 'html'),
+            targets = this.include.concat(...this.modules.map(m => m.targets))
+                      .map(sf => this._relative(this.outDir, sf)),
+            init = entry ? this._initScript(entry) : '';
+        return this.writeFileSync(filename, this._htmlWith(filename, targets) + init);
     }
 
-    makeIncludeTag(m: SourceFile) {
-        var relfn = path.relative(this.outDir, m.filename);
-        return `<script src="${relfn}"></script>`;
+    _relative(from: string, target: SourceFile) {
+        return new SourceFile(path.relative(from, target.filename), target.package);
+    }
+
+    _htmlWith(filename: string, targets: ModuleRef[]) {
+        var html = this.html || new HtmlModule(DEFAULT_HTML);
+        return html.process(filename, targets.map(target => ({target, reference: undefined})));
+    }
+
+    _initScript(ref: ModuleRef) {
+        var key = ref.canonicalName;
+        return `\n<script>kremlin.require('${key}');</script>`;
     }
 }
+
+
+const DEFAULT_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"></head></html>`;
 
 
 

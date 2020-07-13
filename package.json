@@ -10,6 +10,7 @@
     "chokidar": "^3.2.1",
     "coffeescript": "^2.4.1",
     "commander": "^3.0.2",
+    "find-up": "^4.1.0",
     "glob": "^7.1.4",
     "jison": "^0.4.18",
     "jquery": "^3.5.1",

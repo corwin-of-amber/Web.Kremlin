@@ -1,6 +1,5 @@
 const fs = (0||require)('fs'),   // use native fs
-      mkdirp = (0||require)('mkdirp');
-import path from 'path';
+      path = (0||require)('path');
 import assert from 'assert';
 
 import * as acorn from 'acorn';
@@ -242,7 +241,7 @@ class PassThroughModule implements CompilationUnit {
     process(key: string, deps: ModuleDependency[]) { return this.content; }
 
     static fromSourceFile(m: SourceFile) {
-        return new PassThroughModule(
+        return new this(
             fs.readFileSync(m.filename, 'utf-8'),
             this.guessContentType(m));
     }
@@ -251,6 +250,32 @@ class PassThroughModule implements CompilationUnit {
         if (m.filename.endsWith('.js')) return 'js';
         else if (m.filename.endsWith('.css')) return 'css';
         else return 'plain';
+    }
+}
+
+
+class HtmlModule extends PassThroughModule {
+    contentType: "html"
+
+    constructor(text: string) {
+        super(text, 'html');
+    }
+
+    process(key: string, deps: ModuleDependency[]) {
+        var tags = deps.map(d => this.makeIncludeTag(d.target));
+        // @todo interpolate tags
+        return [this.content, ...tags].join('\n');
+    }
+
+    makeIncludeTag(m: ModuleRef) {
+        if (m instanceof SourceFile) {
+            return this.makeScriptTag(m);
+        }
+        else throw new Error(`invalid html reference to '${m.constructor.name}'`);
+    }
+
+    makeScriptTag(m: SourceFile) {
+        return `<script src="${m.filename}"></script>`;
     }
 }
 
@@ -349,8 +374,7 @@ class AcornJSModule implements CompilationUnit {
     }
 
     processImport(imp: AcornTypes.ImportDeclaration, ref: ModuleRef) {
-        var lhs: string, refs = [],
-            key = ref.normalize().canonicalName;
+        var lhs: string, refs = [];
         if (imp.specifiers.length == 1 && 
             (imp.specifiers[0].type === 'ImportDefaultSpecifier'
              || imp.specifiers[0].type === 'ImportNamespaceSpecifier')) {
@@ -368,12 +392,11 @@ class AcornJSModule implements CompilationUnit {
                 }
             }
         }
-        return [[imp, `let ${lhs} = kremlin.require('${key}');`]].concat(refs);
+        return [[imp, `let ${lhs} = ${this.makeRequire(ref)};`]].concat(refs);
     }
 
     processRequire(req: RequireInvocation, ref: ModuleRef) {
-        var key = ref.normalize().canonicalName;
-        return [req, `kremlin.require('${key}')`];
+        return [req, this.makeRequire(ref)];
     }
 
     processExport(exp: AcornTypes.ExportDeclaration) {
@@ -391,6 +414,16 @@ class AcornJSModule implements CompilationUnit {
         }
         else throw new Error(`invalid export '${exp.type}'`);
         return [exp, `kremlin.export(module, ${rhs});`];
+    }
+
+    makeRequire(ref: ModuleRef) {
+        if (ref instanceof NodeModule) {
+            return `require('${ref.name}')`;  // @todo configure by target
+        }
+        else {
+            var key = ref.normalize().canonicalName;
+            return `kremlin.require('${key}')`;
+        }
     }
 
     interpolate(inp: string, elements: {start: number, end: number, text: string}[]) {
@@ -494,5 +527,5 @@ namespace AcornUtils {
 
 
 export { AcornCrawl, SearchPath, ModuleRef, SourceFile, PackageDir, StubModule, NodeModule,
-         Library, NodeJSRuntime, ModuleDependency, PassThroughModule,
+         Library, NodeJSRuntime, ModuleDependency, PassThroughModule, HtmlModule,
          VisitOptions, VisitResult, CompilationUnit }

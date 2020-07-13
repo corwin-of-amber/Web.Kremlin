@@ -1,5 +1,5 @@
 import $ from 'jquery';
-import { AcornCrawl, NodeJSRuntime, SearchPath, SourceFile } from './bundle';
+import { AcornCrawl, NodeJSRuntime, SearchPath, SourceFile, HtmlModule } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler, VueCompiler } from './transpile';
 import { ModuleDepNavigator } from './ui/introspect';
@@ -10,8 +10,7 @@ async function testbed() {
     var ac = new AcornCrawl([new NodeJSRuntime()]);
 
     var compilers = [new VueCompiler(),
-                     new DummyCompiler(new SearchPath(['build'], []))],
-        deploy = new Deployment('build/kremlin');
+                     new DummyCompiler(new SearchPath(['build'], []))];
 
     ac.compilers.push(...compilers);
 
@@ -28,6 +27,9 @@ async function testbed() {
     $(() => document.body.append(nav.view.$el));
 
     
+    var deploy = new Deployment('/Users/corwin/var/workspace/Web.Author/build/kremlin');
+
+    deploy.html = HtmlModule.fromSourceFile(new SourceFile('/Users/corwin/var/workspace/Web.Author/index.kremlin.html'));
     //var vc = new VueCompiler();
     //vc.compileFile('tree.vue');
     
@@ -41,7 +43,7 @@ async function testbed() {
         if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
     }
 
-    deploy.makeIndexHtml();
+    deploy.makeIndexHtml(m.origin);
 
     Object.assign(window, {ac, m, nav, deploy});
 }
