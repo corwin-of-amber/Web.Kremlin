@@ -9,7 +9,6 @@ import { Transpiler } from '../transpile';
 
 class LiveScriptCompiler implements Transpiler {
     opts: {map: 'embedded'}
-    outDir = 'build/kremlin/livescript-compiled';
 
     match(filename: string) { return !!filename.match(/[.]ls$/); }
 

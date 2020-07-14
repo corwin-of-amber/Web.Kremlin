@@ -116,7 +116,7 @@ class Deployment {
     }
 
     _initScript(ref: ModuleRef) {
-        var key = ref.canonicalName;
+        var key = ref.normalize().canonicalName;
         return `\n<script>kremlin.require('${key}');</script>`;
     }
 }

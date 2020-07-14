@@ -18,26 +18,13 @@ async function testbed() {
 
     ac.compilers.push(...compilers);
 
-    var entryp = /*'src/build/testbed.ts', */'/Users/corwin/var/workspace/Web.Author/src/hub.ls',
-        m = ac.visitModuleRef(new SourceFile(entryp));
+    var entryp = new SourceFile('/Users/corwin/var/workspace/Web.Author/src/hub.ls');
 
-    console.log(m);
-    //deploy.addVisitResult(m)
-    //for (let d of m.deps) {
-    //    deploy.addVisitResult(ac.visitModuleRef(d.target));
-    //}
-
-    var nav = new ModuleDepNavigator(ac, entryp);
-    $(() => document.body.append(nav.view.$el));
-
-    
     var deploy = new Deployment('/Users/corwin/var/workspace/Web.Author/build/kremlin');
 
     deploy.html = HtmlModule.fromSourceFile(new SourceFile('/Users/corwin/var/workspace/Web.Author/index.kremlin.html'));
-    //var vc = new VueCompiler();
-    //vc.compileFile('tree.vue');
-    
-    ac.collect([new SourceFile(entryp)]);
+
+    ac.collect([entryp]);
     for (let m of ac.modules.visited.values()) {
         console.log(m);
         deploy.addVisitResult(m);
@@ -47,9 +34,12 @@ async function testbed() {
         if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
     }
 
-    deploy.makeIndexHtml(m.origin);
+    deploy.makeIndexHtml(entryp);
 
-    Object.assign(window, {ac, m, nav, deploy});
+    var nav = new ModuleDepNavigator(ac, entryp);
+    $(() => document.body.append(nav.view.$el));
+
+    Object.assign(window, {ac, deploy});
 }
 
 testbed();

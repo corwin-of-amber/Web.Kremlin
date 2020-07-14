@@ -1,5 +1,6 @@
 const fs = (0||require)('fs'),   // use native fs
-      path = (0||require)('path');
+      path = (0||require)('path'),
+      findUp = (0||require)('find-up');
 import assert from 'assert';
 
 import * as acorn from 'acorn';
@@ -65,13 +66,23 @@ abstract class ModuleRef {
     abstract get canonicalName(): string
     normalize(): ModuleRef { return this; }
 }
+
 class PackageDir extends ModuleRef {
     dir: string
     constructor(dir: string) { super(); this.dir = dir; }
-    get canonicalName() { assert(false); return ''; }
+    get canonicalName() {
+        var m = this.manifest;
+        return m.name && m.version ? `${m.name}@${m.version}` : this.dir; 
+    }
     get manifest() {
-        var m = fs.readFileSync(path.join(this.dir, 'package.json'));
-        return JSON.parse(m);
+        try {
+            var m = fs.readFileSync(path.join(this.dir, 'package.json'));
+            return JSON.parse(m);
+        }
+        catch (e) {
+            console.error(`failed to read manifest in ${this.dir}`, e);
+            return {}; 
+        }
     }
     get(filename: string) {
         return new SourceFile(path.join(this.dir, filename), this);
@@ -81,6 +92,7 @@ class PackageDir extends ModuleRef {
     }
     normalize(): SourceFile { return this.getMain(); }
 }
+
 class SourceFile extends ModuleRef {
     filename: string
     package?: PackageDir
@@ -89,8 +101,21 @@ class SourceFile extends ModuleRef {
         this.filename = filename;
         this.package = pkg;
     }
-    get canonicalName() { return this.filename; }
+    get id() { return JSON.stringify([this.constructor.name, this.filename]); };
+    get canonicalName() {
+        return this.package ? `${this.package.canonicalName}:${path.relative(this.package.dir, this.filename)}`
+             : this.filename;
+    }
+    normalize() {
+        if (!this.package) {
+            var cwd = path.dirname(this.filename),
+                fu = findUp.sync('package.json', {cwd}) || findUp('node_modules', {cwd});
+            if (fu) this.package = new PackageDir(path.dirname(fu));
+        }
+        return this;
+    }
 }
+
 class TransientCode extends ModuleRef {
     contentType: string
     content: string
@@ -101,11 +126,13 @@ class TransientCode extends ModuleRef {
     }
     get canonicalName(): string { throw new Error('Internal error: TransientCode#canonicalName'); }
 }
+
 class NodeModule extends ModuleRef {
     name: string
     constructor(name: string) { super(); this.name = name; }
     get canonicalName() { return `node://${this.name}`; }
 }
+
 class StubModule extends ModuleRef {
     name: string
     reason: ModuleResolutionError
@@ -169,6 +196,11 @@ class AcornCrawl {
             }
         }
         return vs;
+    }
+
+    peek(ref: ModuleRef) {
+        var vs = this.modules.visited, key = ref.id;
+        return vs.get(key) || this.visitModuleRef(ref);
     }
 
     visitFile(filename: string, opts: VisitOptions = {}): VisitResult {

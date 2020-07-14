@@ -31,7 +31,7 @@ class ModuleDepNavigator {
 
         this.view.$on('action', (ev) => {
             if (ev.subtree.children.length === 0) {
-                var m = ac.visitModuleRef(ev.module);
+                var m = ac.peek(ev.module);
                 console.log(m);
                 ev.subtree.children.splice(0, Infinity,
                         ...m.deps.map(x => ({root: {module: x.target}})));
