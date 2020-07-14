@@ -1,7 +1,10 @@
 import $ from 'jquery';
 import { AcornCrawl, NodeJSRuntime, SearchPath, SourceFile, HtmlModule } from './bundle';
 import { Deployment } from './deploy';
-import { DummyCompiler, VueCompiler } from './transpile';
+import { DummyCompiler } from './transpile';
+import { VueCompiler } from './addons/addon-vue';
+import { LiveScriptCompiler } from './addons/addon-livescript';
+
 import { ModuleDepNavigator } from './ui/introspect';
 
 
@@ -10,6 +13,7 @@ async function testbed() {
     var ac = new AcornCrawl([new NodeJSRuntime()]);
 
     var compilers = [new VueCompiler(),
+                     new LiveScriptCompiler(),
                      new DummyCompiler(new SearchPath(['build'], []))];
 
     ac.compilers.push(...compilers);

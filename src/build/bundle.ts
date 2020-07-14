@@ -91,6 +91,16 @@ class SourceFile extends ModuleRef {
     }
     get canonicalName() { return this.filename; }
 }
+class TransientCode extends ModuleRef {
+    contentType: string
+    content: string
+    constructor(content: string, contentType: string) {
+        super();
+        this.contentType = contentType;
+        this.content = content;
+    }
+    get canonicalName(): string { throw new Error('Internal error: TransientCode#canonicalName'); }
+}
 class NodeModule extends ModuleRef {
     name: string
     constructor(name: string) { super(); this.name = name; }
@@ -161,9 +171,9 @@ class AcornCrawl {
         return vs;
     }
 
-    visit(filename: string, opts: VisitOptions = {}): VisitResult {
+    visitFile(filename: string, opts: VisitOptions = {}): VisitResult {
         console.log(`%cvisit ${filename}`, 'color: #8080ff');
-        if (filename.match(/\.js$/)) return this.visitJS(filename, opts);
+        if (filename.match(/\.js$/)) return this.visitJSFile(filename, opts);
         else {
             opts = {basedir: path.dirname(filename), ...opts};
             for (let cmplr of this.compilers) {
@@ -171,7 +181,7 @@ class AcornCrawl {
                     try {
                         var c = cmplr.compileFile(filename)
                     }
-                    catch (e) { return this.visitLeaf(new StubModule(filename, e)); }
+                    catch (e) { console.error(e); return this.visitLeaf(new StubModule(filename, e)); }
                     return this.visitModuleRef(c, opts);
                 }
             }
@@ -179,9 +189,12 @@ class AcornCrawl {
         }
     }
 
-    visitJS(filename: string, opts: VisitOptions = {}): VisitResult {
-        var m = AcornJSModule.fromFile(filename),
-            sp = SearchPath.from(opts.basedir || m.dir);
+    visitJSFile(filename: string, opts: VisitOptions = {}): VisitResult {
+        return this.visitJS(AcornJSModule.fromFile(filename), opts);
+    }
+
+    visitJS(m: AcornJSModule, opts: VisitOptions = {}): VisitResult {
+        var sp = SearchPath.from(opts.basedir || m.dir);
 
         var lookup = (src: string) => {
             try {
@@ -200,17 +213,27 @@ class AcornCrawl {
     visitModuleRef(ref: ModuleRef, opts: VisitOptions = {}): VisitResult {
         if (ref instanceof PackageDir) return this.visitPackageDir(ref, opts);
         else if (ref instanceof SourceFile) return this.visitSourceFile(ref, opts);
+        else if (ref instanceof TransientCode) return this.visitTransientCode(ref, opts);
         else if (ref instanceof StubModule || ref instanceof NodeModule)
             return this.visitLeaf(ref);
         else throw new Error(`cannot visit: ${ref.constructor.name}`);
     }
 
     visitSourceFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
-        return {...this.visit(ref.filename, opts), origin: ref};
+        return {...this.visitFile(ref.filename, opts), origin: ref};
     }
 
     visitPackageDir(ref: PackageDir, opts: VisitOptions = {}): VisitResult {
         return this.visitModuleRef(ref.getMain(), opts);
+    }
+
+    visitTransientCode(ref: TransientCode, opts: VisitOptions = {}): VisitResult {
+        switch (ref.contentType) {
+        case 'js':
+            return this.visitJS(new AcornJSModule(ref.content), opts);
+        default:
+            throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
+        }
     }
 
     visitLeaf(ref: NodeModule | StubModule): VisitResult {
@@ -526,6 +549,6 @@ namespace AcornUtils {
 
 
 
-export { AcornCrawl, SearchPath, ModuleRef, SourceFile, PackageDir, StubModule, NodeModule,
+export { AcornCrawl, SearchPath, ModuleRef, SourceFile, PackageDir, TransientCode, StubModule, NodeModule,
          Library, NodeJSRuntime, ModuleDependency, PassThroughModule, HtmlModule,
          VisitOptions, VisitResult, CompilationUnit }

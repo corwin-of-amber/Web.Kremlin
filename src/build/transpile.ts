@@ -1,7 +1,6 @@
-const fs = (0||require)('fs'), mkdirp = (0||require)('mkdirp');
 import path from 'path';
 
-import { SearchPath, ModuleRef, SourceFile } from './bundle';
+import { SearchPath, ModuleRef } from './bundle';
 
 
 
@@ -11,6 +10,11 @@ interface Transpiler {
 }
 
 
+/**
+ * Uses precompiled artifacts instead of compiling on-the-fly.
+ * Currently hard-coded to look for JavaScript transpiled from TypeScript
+ * and LiveScript.
+ */
 class DummyCompiler implements Transpiler {
     searchPath: SearchPath
 
@@ -57,39 +61,5 @@ class DummyCompiler implements Transpiler {
 }
 
 
-import VueComponentCompiler, { SFCCompiler } from '@vue/component-compiler'
 
-const vueComponentCompiler = (0||require)('@vue/component-compiler') as typeof VueComponentCompiler;
-
-
-class VueCompiler implements Transpiler {
-    cc: SFCCompiler
-    outDir: string
-
-    constructor() {
-        this.cc = vueComponentCompiler.createDefaultCompiler();
-        this.outDir = 'build/kremlin/vue-components';
-    }
-
-    match(filename: string) { return !!filename.match(/[.]vue$/); }
-
-    compileFile(filename: string) {
-        const fs = (0||require)('fs');
-        return this.compileSource(fs.readFileSync(filename, 'utf-8'), filename)
-    }
-
-    compileSource(source: string, filename?: string) {
-        var desc = this.cc.compileToDescriptor(filename, source);
-        var out = vueComponentCompiler.assemble(this.cc, filename, desc, {}),
-            outFn = path.join(this.outDir, 
-                        (filename ? path.basename(filename) : 'tmp.vue') + '.js');
-
-        mkdirp.sync(path.dirname(outFn));
-        fs.writeFileSync(outFn, out.code);
-        return new SourceFile(outFn);
-    }
-}
-
-
-
-export { Transpiler, DummyCompiler, VueCompiler }
+export { Transpiler, DummyCompiler }
