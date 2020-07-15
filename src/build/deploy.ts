@@ -4,8 +4,9 @@ const fs = (0||require)('fs'),   // use native fs
 import path from 'path';
 import assert from 'assert';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
-         ModuleDependency, CompilationUnit, PassThroughModule,
-         VisitResult, HtmlModule} from './bundle';
+         ModuleDependency } from './modules';
+import { CompilationUnit, PassThroughModule, HtmlModule, VisitResult }
+         from './bundle';
 
 
 

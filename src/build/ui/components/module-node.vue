@@ -1,6 +1,6 @@
 <template>
     <div class="treeview__module" @click="visit">
-        {{module.filename || module.dir || module.name}}
+        {{module.canonicalName}}
     </div>
 </template>
 <script>

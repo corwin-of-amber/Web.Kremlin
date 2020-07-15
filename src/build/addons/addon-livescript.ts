@@ -2,7 +2,7 @@ const fs = (0||require)('fs');
 
 const LiveScript = (0||require)('livescript')
 
-import { TransientCode } from '../bundle';
+import { TransientCode } from '../modules';
 import { Transpiler } from '../transpile';
 
 

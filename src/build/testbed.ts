@@ -1,5 +1,6 @@
 import $ from 'jquery';
-import { AcornCrawl, NodeJSRuntime, SearchPath, SourceFile, HtmlModule } from './bundle';
+import { SourceFile } from './modules';
+import { AcornCrawl, NodeJSRuntime, SearchPath, HtmlModule } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
 import { VueCompiler } from './addons/addon-vue';

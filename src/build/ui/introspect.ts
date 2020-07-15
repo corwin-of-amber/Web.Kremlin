@@ -10,7 +10,8 @@ Vue.component('generic-tree', treeview);
 import moduleNode from './components/module-node.vue';
 Vue.component('module-node', moduleNode);
 
-import { AcornCrawl, ModuleRef, SourceFile } from '../bundle';
+import { ModuleRef, SourceFile } from '../modules';
+import { AcornCrawl } from '../bundle';
 
 
 
@@ -26,7 +27,7 @@ class ModuleDepNavigator {
         }).$mount() as ModuleDepComponent;
         this.view.root = {module: main};
 
-        var m = ac.visitModuleRef(main);
+        var m = ac.peek(main);
         this.view.children = m.deps.map(x => ({root: {module: x.target}}))
 
         this.view.$on('action', (ev) => {
