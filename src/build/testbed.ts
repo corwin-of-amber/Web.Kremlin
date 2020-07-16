@@ -35,7 +35,7 @@ async function testbed() {
         if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
     }
 
-    deploy.makeIndexHtml(entryp);
+    deploy.makeIndexHtml([entryp]);
 
     var nav = new ModuleDepNavigator(ac, entryp);
     $(() => document.body.append(nav.view.$el));

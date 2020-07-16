@@ -98,12 +98,12 @@ class Deployment {
         return new SourceFile(outp);
     }
 
-    makeIndexHtml(entry?: ModuleRef) {
+    makeIndexHtml(entry?: ModuleRef[]) {
         if (!this.include) this.addInclude();
         var filename = this.newFilename('bundled.html', 'html'),
             targets = this.include.concat(...this.modules.map(m => m.targets))
                       .map(sf => this._relative(this.outDir, sf)),
-            init = entry ? this._initScript(entry) : '';
+            init = (entry || []).map(m => this._initScript(m)).join('');
         return this.writeFileSync(filename, this._htmlWith(filename, targets) + init);
     }
 

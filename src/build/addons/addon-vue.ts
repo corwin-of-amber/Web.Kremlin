@@ -2,21 +2,28 @@ const fs = (0||require)('fs'),
       mkdirp = (0||require)('mkdirp');
 import path from 'path';
 
-import VueComponentCompiler, { SFCCompiler } from '@vue/component-compiler'
-const vueComponentCompiler = (0||require)('@vue/component-compiler') as typeof VueComponentCompiler;
+import /*type*/ VueComponentCompiler from '@vue/component-compiler'
+import /*type*/ { SFCCompiler } from '@vue/component-compiler'
 
 import { Transpiler } from '../transpile';
-import { SourceFile } from '../bundle';
+import { SourceFile } from '../modules';
 
 
 
 class VueCompiler implements Transpiler {
-    cc: SFCCompiler
+    cc: typeof VueComponentCompiler
+    sfc: SFCCompiler
     outDir: string
 
     constructor() {
-        this.cc = vueComponentCompiler.createDefaultCompiler();
         this.outDir = 'build/kremlin/vue-components';
+    }
+
+    load() {
+        if (!this.cc) {
+            this.cc = (0||require)('@vue/component-compiler') 
+            this.sfc = this.cc.createDefaultCompiler();
+        }
     }
 
     match(filename: string) { return !!filename.match(/[.]vue$/); }
@@ -26,8 +33,9 @@ class VueCompiler implements Transpiler {
     }
 
     compileSource(source: string, filename?: string) {
-        var desc = this.cc.compileToDescriptor(filename, source);
-        var out = vueComponentCompiler.assemble(this.cc, filename, desc, {}),
+        this.load();
+        var desc = this.sfc.compileToDescriptor(filename, source);
+        var out = this.cc.assemble(this.sfc, filename, desc, {}),
             outFn = path.join(this.outDir, 
                         (filename ? path.basename(filename) : 'tmp.vue') + '.js');
 
