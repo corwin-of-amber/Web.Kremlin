@@ -3,7 +3,9 @@ const fs = (0||require)('fs'),   // use native fs
 import assert from 'assert';
 
 import * as acorn from 'acorn';
-import * as walk from 'acorn-walk';
+import * as acornWalk from 'acorn-walk';
+import * as parse5 from 'parse5';
+import parse5Walk from 'walk-parse5'
 import acornGlobals from 'acorn-globals';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, StubModule,
          ModuleDependency, ModuleResolutionError } from './modules';
@@ -149,7 +151,7 @@ class AcornCrawl {
             }
             catch (e) { return new StubModule(src, e); }
         };
-        var mkdep = (u: any, target: ModuleRef) => ({reference: u, target});
+        var mkdep = (u: any, target: ModuleRef) => ({source: u, target});
 
         m.extractImports();
         var deps = m.imports.map(u => mkdep(u, lookup(u.source.value)))
@@ -211,9 +213,7 @@ class PassThroughModule implements CompilationUnit {
     process(key: string, deps: ModuleDependency[]) { return this.content; }
 
     static fromSourceFile(m: SourceFile) {
-        return new this(
-            fs.readFileSync(m.filename, 'utf-8'),
-            this.guessContentType(m));
+        return new this(m.readSync(), this.guessContentType(m));
     }
 
     static guessContentType(m: SourceFile) {
@@ -224,17 +224,52 @@ class PassThroughModule implements CompilationUnit {
 }
 
 
-class HtmlModule extends PassThroughModule {
-    contentType: "html"
+class HtmlModule implements CompilationUnit {
+    text: string
+    ast: parse5.Document
+    contentType = 'html'
+
+    scripts: parse5.DefaultTreeElement[]
 
     constructor(text: string) {
-        super(text, 'html');
+        this.text = text;
+        this.ast = parse5.parse(text, {sourceCodeLocationInfo: true});
+    }
+
+    extractScripts() {
+        this.scripts = [];
+        parse5Walk(this.ast, (node: parse5.DefaultTreeNode) => {
+            if (node.nodeName === 'script')
+                this.scripts.push(node as parse5.DefaultTreeElement);
+        });
     }
 
     process(key: string, deps: ModuleDependency[]) {
-        var tags = deps.map(d => this.makeIncludeTag(d.target));
-        // @todo interpolate tags
-        return [this.content, ...tags].join('\n');
+        if (!this.scripts) this.extractScripts();
+
+        var entries = this.scripts.map(u => {
+            var dep = deps.find(d => d.source === u);
+            return dep && {tag: u, ref: dep.target};
+        }).filter(x => x);
+
+        var tags = [].concat(...deps.map(d =>
+            d.compiled.map(t => this.makeIncludeTag(t))
+        )).join('\n');
+
+        if (entries.length > 0) {
+            return TextSource.interpolate(this.text, entries.map(e => {
+                var k = this.processScript(e.tag, e.ref);
+                k.text = tags + '\n' + k.text;
+                return k;
+            }));
+        }
+        else return this.text + '\n' + tags;
+    }
+
+    processScript(script: parse5.DefaultTreeElement, ref: ModuleRef) {
+        var loc = script.sourceCodeLocation;   assert(loc);
+        var at = {start: loc.startOffset, end: loc.endOffset};
+        return {text: this.makeInitScript(ref), ...at};
     }
 
     makeIncludeTag(m: ModuleRef) {
@@ -246,6 +281,15 @@ class HtmlModule extends PassThroughModule {
 
     makeScriptTag(m: SourceFile) {
         return `<script src="${m.filename}"></script>`;
+    }
+
+    makeInitScript(ref: ModuleRef) {
+        var key = ref.normalize().canonicalName;
+        return `\n<script>kremlin.require('${key}');</script>`;
+    }
+
+    static fromSourceFile(m: SourceFile) {
+        return new this(m.readSync());
     }
 }
 
@@ -276,7 +320,7 @@ class AcornJSModule implements CompilationUnit {
         this.imports = [];
         this.requires = [];
         this.exports = [];
-        walk.full(this.ast, (node) => {
+        acornWalk.full(this.ast, (node) => {
             if      (this.isImport(node))   this.imports.push(node);
             else if (this.isRequire(node))  this.requires.push(node);
             else if (this.isExport(node))   this.exports.push(node);
@@ -302,7 +346,7 @@ class AcornJSModule implements CompilationUnit {
 
     _extractVarNames() {
         var s: Set<string> = new Set;
-        walk.full(this.ast, u => {
+        acornWalk.full(this.ast, u => {
             if (AcornUtils.is(u, "Identifier")) s.add(u.name);
         });
         return s;
@@ -323,20 +367,20 @@ class AcornJSModule implements CompilationUnit {
         return AcornUtils.is(node, 'ExportNamedDeclaration') || AcornUtils.is(node, 'ExportDefaultDeclaration');
     }
 
-    process(key: string, deps: ModuleDependency[]) {
+    process(key: string, deps: ModuleDependency<acorn.Node>[]) {
         if (!this.vars) this.extractVars();
 
         var imports = this.imports.map(imp => {
-                var dep = deps.find(d => d.reference === imp);
+                var dep = deps.find(d => d.source === imp);
                 return dep ? this.processImport(imp, dep.target) : [];
             }),
             requires = this.requires.map(req => {
-                var dep = deps.find(d => d.reference === req);
+                var dep = deps.find(d => d.source === req);
                 return dep ? [this.processRequire(req, dep.target)] : [];
             }),
             exports = this.exports.map(exp => [this.processExport(exp)]),
 
-            prog = this.interpolate(this.text, 
+            prog = TextSource.interpolate(this.text, 
                 [].concat(...imports, ...requires, ...exports)
                 .map(([node, text]) => ({...node, text})));
 
@@ -396,15 +440,6 @@ class AcornJSModule implements CompilationUnit {
         }
     }
 
-    interpolate(inp: string, elements: {start: number, end: number, text: string}[]) {
-        var out = '', i = 0;
-        for (let el of elements.sort((a, b) => a.start - b.start)) {
-            out += inp.substring(i, el.start) + el.text;
-            i = el.end;
-        }
-        return out + inp.substring(i);
-    }
-
     _freshVar(base = "") {
         if (!this.vars) this.extractVars();
         for (let i = 0; ; i++) {
@@ -416,10 +451,30 @@ class AcornJSModule implements CompilationUnit {
         }
     }
 
+    static fromSourceFile(m: SourceFile) {
+        return new this(m.readSync(), path.dirname(m.filename));
+    }
+
     static fromFile(filename: string) {
-        return new AcornJSModule(
+        return new this(
             fs.readFileSync(filename, 'utf-8'),
             path.dirname(filename));
+    }
+}
+
+namespace TextSource {
+    /**
+     * Utility function for replacing some elements within a source file.
+     * @param inp source text
+     * @param elements places to interpolate some text into
+     */
+    export function interpolate(inp: string, elements: {start: number, end: number, text: string}[]) {
+        var out = '', i = 0;
+        for (let el of elements.sort((a, b) => a.start - b.start)) {
+            out += inp.substring(i, el.start) + el.text;
+            i = el.end;
+        }
+        return out + inp.substring(i);
     }
 }
 

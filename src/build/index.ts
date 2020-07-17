@@ -56,7 +56,7 @@ class Builder {
             if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
         }
 
-        deploy.makeIndexHtml(this.entryp);
+        deploy.makeIndexHtml();
     }
 }
 

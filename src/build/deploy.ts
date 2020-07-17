@@ -46,7 +46,7 @@ class Deployment {
     modules: {dmod: DeployModule, targets: SourceFile[]}[] = []
     include: SourceFile[]
 
-    html: CompilationUnit
+    html: HtmlModule
 
     constructor(outDir: string) { this.outDir = outDir; }
 
@@ -98,32 +98,75 @@ class Deployment {
         return new SourceFile(outp);
     }
 
-    makeIndexHtml(entry?: ModuleRef[]) {
+    makeIndexHtml() {
         if (!this.include) this.addInclude();
-        var filename = this.newFilename('bundled.html', 'html'),
-            targets = this.include.concat(...this.modules.map(m => m.targets))
-                      .map(sf => this._relative(this.outDir, sf)),
-            init = (entry || []).map(m => this._initScript(m)).join('');
-        return this.writeFileSync(filename, this._htmlWith(filename, targets) + init);
+        var filename = this.newFilename('bundled.html', 'html');
+        return this.writeFileSync(filename, this._htmlWith(filename));
     }
 
-    _relative(from: string, target: SourceFile) {
+    _relative(target: SourceFile) {
+        return Deployment._relative(this.outDir, target);
+    }
+
+    static _relative(from: string, target: SourceFile) {
         return new SourceFile(path.relative(from, target.filename), target.package);
     }
 
-    _htmlWith(filename: string, targets: ModuleRef[]) {
-        var html = this.html || new HtmlModule(DEFAULT_HTML);
-        return html.process(filename, targets.map(target => ({target, reference: undefined})));
-    }
-
-    _initScript(ref: ModuleRef) {
-        var key = ref.normalize().canonicalName;
-        return `\n<script>kremlin.require('${key}');</script>`;
+    _htmlWith(filename: string) {
+        var html = this.html || new HtmlModule(DEFAULT_HTML),
+            deps = new HtmlPostprocessor(this).getDeps(html);
+        
+        return html.process(filename, deps);
     }
 }
 
 
 const DEFAULT_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"></head></html>`;
+
+
+/**
+ * An auxiliary class for injecting scripts into HTML files.
+ */
+class HtmlPostprocessor {
+    deploy: Deployment
+
+    constructor(deploy: Deployment) {
+        this.deploy = deploy;
+    }
+
+    static getRefTags(html: HtmlModule) {
+        if (!html.scripts) html.extractScripts();
+        return html.scripts.map(sc => {
+            var src = sc.attrs.find(a => a.name == 'src');
+            if (src) {
+                var mo = /^kremlin:\/\/(.*)$/.exec(src.value);
+                if (mo) return {path: mo[1], tag: sc};
+            }
+        }).filter(x => x);
+    }
+
+    getDeps(html: HtmlModule): ModuleDependency[] {
+        var scripts = HtmlPostprocessor.getRefTags(html);
+        const referenceOf = (m: ModuleRef) => {
+            var cn = m.canonicalName,
+                lu = scripts.find(({path}) => cn.endsWith(path));
+            return lu && lu.tag;
+        };
+        var pre = this.deploy.include ? [{
+                source: undefined, target: undefined, 
+                compiled: this._targets(this.deploy.include)
+            }] : [],
+            load = this.deploy.modules.map(m => ({
+                source: referenceOf(m.dmod.ref), target: m.dmod.ref,
+                compiled: this._targets(m.targets)
+            }));
+        return pre.concat(load);
+    }
+
+    _targets(targets: SourceFile[]) {
+        return targets.map(t => this.deploy._relative(t));
+    }
+}
 
 
 

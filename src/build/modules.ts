@@ -51,6 +51,7 @@ class SourceFile extends ModuleRef {
         return this.package ? `${this.package.canonicalName}:${path.relative(this.package.dir, this.filename)}`
              : this.filename;
     }
+    readSync() { return fs.readFileSync(this.filename, 'utf-8'); }
     normalize() {
         if (!this.package) {
             var cwd = path.dirname(this.filename),
@@ -86,7 +87,9 @@ class StubModule extends ModuleRef {
     get canonicalName() { return `stub://${this.name}`; }
 }
 
-type ModuleDependency = {reference: any, target: ModuleRef}
+type ModuleDependency<T = any> = 
+    {source: T, target: ModuleRef, compiled?: ModuleRef[]};
+
 
 class ModuleResolutionError { }
 
