@@ -62,7 +62,8 @@ class Deployment {
     }
 
     addInclude(fn: string = 'src/build/include.js') {
-        var ref = new SourceFile(findUp.sync(fn, {cwd: __dirname})),
+        var cwd = typeof __dirname !== 'undefined' ? __dirname : '.',
+            ref = new SourceFile(findUp.sync(fn, {cwd}), null, 'js'),
             ptm = PassThroughModule.fromSourceFile(ref);
         this.include = this.write(new DeployModule(ref, ptm, []));
     }
@@ -71,11 +72,11 @@ class Deployment {
         var ext = `.${contentType}`,
             basename = this.withoutExt(filename, ext);
         function *candidates() {
-            yield filename;
+            yield basename;
             for (let i = 0; ; i++) yield `${basename}-${i}`;
         }
-        for (filename of candidates()) 
-            if (!this.files.has(filename)) break;
+        for (let cand of candidates()) 
+            if (!this.files.has(filename = this.withExt(cand, ext))) break;
         this.files.add(filename);
         return filename;
     }
@@ -90,16 +91,16 @@ class Deployment {
     write(dmod: DeployModule) {
         var outfn = dmod.output;
         return dmod.targets.map(({body, contentType}) =>
-            this.writeFileSync(this.newFilename(outfn, contentType), body));
+            this.writeFileSync(this.newFilename(outfn, contentType), body, contentType));
     }
 
-    writeFileSync(filename: string, content: string) {
+    writeFileSync(filename: string, content: string, contentType?: string) {
         var outp = path.join(this.outDir, filename);
         console.log(`%c> ${outp}`, "color: #ff8080");
         mkdirp.sync(path.dirname(outp));
         fs.writeFileSync(outp, content);
         this.files.add(filename);
-        return new SourceFile(outp);
+        return new SourceFile(outp, null, contentType);
     }
 
     makeIndexHtml(filename?: string) {
@@ -120,7 +121,8 @@ class Deployment {
     }
 
     static _relative(from: string, target: SourceFile) {
-        return new SourceFile(path.relative(from, target.filename), target.package);
+        return new SourceFile(path.relative(from, target.filename),
+                              target.package, target.contentType);
     }
 
     _htmlWith(filename: string) {

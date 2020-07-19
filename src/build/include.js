@@ -8,7 +8,7 @@ kremlin = {m: {}, loaded: {},
             this.loaded[k] = mod;
             var fun = this.m[k];
             if (fun) fun(mod, mod.exports);
-            else throw new Error('module not found: ' + k);
+            //else throw new Error('module not found: ' + k);
             return mod.exports || {};
         }
     },

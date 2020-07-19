@@ -110,6 +110,7 @@ class AcornCrawl {
     visitFile(filename: string, opts: VisitOptions = {}): VisitResult {
         console.log(`%cvisit ${filename}`, 'color: #8080ff');
         if (filename.match(/\.js$/)) return this.visitJSFile(filename, opts);
+        else if (filename.match(/\.css$/)) return this.visitCSSFile(filename, opts);
         else {
             opts = {basedir: path.dirname(filename), ...opts};
             for (let cmplr of this.compilers) {
@@ -127,6 +128,11 @@ class AcornCrawl {
 
     visitJSFile(filename: string, opts: VisitOptions = {}): VisitResult {
         return this.visitJS(AcornJSModule.fromFile(filename), opts);
+    }
+
+    visitCSSFile(filename: string, opts: VisitOptions = {}): VisitResult {
+        var pt = PassThroughModule.fromSourceFile(new SourceFile(filename));
+        return {compiled: pt, deps: []};
     }
 
     visitJS(m: AcornJSModule, opts: VisitOptions = {}): VisitResult {
@@ -244,9 +250,9 @@ class HtmlModule implements CompilationUnit {
         )).join('\n');
 
         if (entries.length > 0) {
-            return TextSource.interpolate(this.text, entries.map(e => {
+            return TextSource.interpolate(this.text, entries.map((e, i) => {
                 var k = this.processScript(e.tag, e.ref);
-                k.text = tags + '\n' + k.text;
+                if (i == 0) k.text = tags + '\n' + k.text;
                 return k;
             }));
         }
@@ -261,13 +267,22 @@ class HtmlModule implements CompilationUnit {
 
     makeIncludeTag(m: ModuleRef) {
         if (m instanceof SourceFile) {
-            return this.makeScriptTag(m);
+            switch (m.contentType) {
+            case 'js': return this.makeScriptTag(m);
+            case 'css': return this.makeStylesheetLinkTag(m);
+            default: return '';
+            }
         }
         else throw new Error(`invalid html reference to '${m.constructor.name}'`);
     }
 
     makeScriptTag(m: SourceFile) {
         return `<script src="${m.filename}"></script>`;
+    }
+
+    makeStylesheetLinkTag(m: SourceFile) {
+        return `<link href="${m.filename}" rel="stylesheet" type="text/${
+                m.contentType || 'css'}"></script>`;
     }
 
     makeInitScript(ref: ModuleRef) {

@@ -69,10 +69,12 @@ class PackageDir extends ModuleRef {
 
 class SourceFile extends ModuleRef {
     filename: string
+    contentType?: string
     package?: PackageDir
-    constructor(filename: string, pkg?: PackageDir) {
+    constructor(filename: string, pkg?: PackageDir, contentType?: string) {
         super();
         this.filename = filename;
+        this.contentType = contentType;
         this.package = pkg || PackageDir.lookUp(path.dirname(this.filename));
     }
     get id() { return JSON.stringify([this.constructor.name, this.filename]); };
