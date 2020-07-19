@@ -8,7 +8,7 @@ import * as parse5 from 'parse5';
 import parse5Walk from 'walk-parse5'
 import acornGlobals from 'acorn-globals';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, StubModule,
-         ModuleDependency, ModuleResolutionError } from './modules';
+         ModuleDependency, FileNotFound } from './modules';
 import { Transpiler } from './transpile';
 import './ui/introspect';
 
@@ -58,18 +58,6 @@ class SearchPath {
             l.push(d);
         }
         return new SearchPath(l.map(d => path.join(d, 'node_modules')), [dir]);
-    }
-}
-
-
-class FileNotFound extends ModuleResolutionError {
-    path: string
-    from: string[]
-
-    constructor(path: string, from: string[]) {
-        super();
-        this.path = path;
-        this.from = from;
     }
 }
 

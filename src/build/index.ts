@@ -3,6 +3,7 @@ import { SourceFile } from './modules';
 import { AcornCrawl, NodeJSRuntime, SearchPath, HtmlModule, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
+import { TypeScriptCompiler } from './addons/addon-typescript';
 import { VueCompiler } from './addons/addon-vue';
 import { LiveScriptCompiler } from './addons/addon-livescript';
 import { ProjectDefinition, ProjectDefinitionNorm } from '../project';
@@ -30,7 +31,8 @@ class Builder {
     crawl() {
         var ac = new AcornCrawl([new NodeJSRuntime()]);
 
-        var compilers = [new VueCompiler(),
+        var compilers = [new TypeScriptCompiler(),
+                         new VueCompiler(),
                          new LiveScriptCompiler(),
                          new DummyCompiler(new SearchPath(['build'], []))];
 
