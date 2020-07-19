@@ -1,5 +1,5 @@
-const fs = (0||require)('fs') /*as typeof import('fs')*/,   // use native fs
-      path = (0||require)('path') /*as typeof import('path')*/;
+const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
+      path = (0||require)('path') as typeof import('path');
 import assert from 'assert';
 
 import * as acorn from 'acorn';

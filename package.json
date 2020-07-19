@@ -20,7 +20,7 @@
     "parse5": "^6.0.0",
     "prelude-ls": "^1.1.2",
     "requireg": "^0.2.2",
-    "typescript": "^2.8.1",
+    "typescript": "^3.9.7",
     "underscore": "*",
     "vue": "^2.6.11",
     "vue-hot-reload-api": "^2.3.4",

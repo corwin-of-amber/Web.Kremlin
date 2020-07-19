@@ -1,5 +1,5 @@
-const fs = (0||require)('fs'),   // use native fs
-      path = (0||require)('path'),
+const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
+      path = (0||require)('path') as typeof import('path'),
       findUp = (0||require)('find-up');
 
 
@@ -22,7 +22,7 @@ class PackageDir extends ModuleRef {
     get manifest() {
         try {
             var m = fs.readFileSync(path.join(this.dir, 'package.json'));
-            return JSON.parse(m);
+            return JSON.parse(<any>m);
         }
         catch (e) {
             console.error(`failed to read manifest in ${this.dir}`, e);

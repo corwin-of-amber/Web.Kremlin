@@ -1,9 +1,9 @@
-const fs = (0||require)('fs'),
-      mkdirp = (0||require)('mkdirp');
+const fs = (0||require)('fs') as typeof import('fs'),
+      mkdirp = (0||require)('mkdirp') as typeof import('mkdirp');
 import path from 'path';
 
-import /*type*/ VueComponentCompiler from '@vue/component-compiler'
-import /*type*/ { SFCCompiler } from '@vue/component-compiler'
+import type VueComponentCompiler from '@vue/component-compiler'
+import type { SFCCompiler } from '@vue/component-compiler'
 
 import { Transpiler } from '../transpile';
 import { SourceFile } from '../modules';

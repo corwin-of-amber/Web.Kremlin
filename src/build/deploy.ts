@@ -1,5 +1,5 @@
-const fs = (0||require)('fs'),   // use native fs
-      mkdirp = (0||require)('mkdirp'),
+const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
+      mkdirp = (0||require)('mkdirp') as typeof import('mkdirp'),
       findUp = (0||require)('find-up');
 import path from 'path';
 import assert from 'assert';
