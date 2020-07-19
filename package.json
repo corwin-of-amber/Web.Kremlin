@@ -5,23 +5,23 @@
   "dependencies": {
     "@vue/component-compiler": "^4.2.3",
     "acorn": "^7.3.1",
-    "acorn-globals": "file:packages/acorn-globals",
+    "acorn-globals": "git+https://github.com/LongTengDao-fork-B/acorn-globals.git",
     "acorn-walk": "^7.2.0",
-    "chokidar": "^3.2.1",
-    "coffeescript": "^2.4.1",
+    "chokidar": "^3.4.1",
+    "coffeescript": "^2.5.1",
     "commander": "^3.0.2",
     "find-up": "^4.1.0",
-    "glob": "^7.1.4",
+    "glob": "^7.1.6",
     "jison": "^0.4.18",
     "jquery": "^3.5.1",
     "livescript": "^1.6.0",
     "mkdirp": "^1.0.4",
-    "nearley": "^2.2.0",
+    "nearley": "^2.19.5",
     "parse5": "^6.0.0",
-    "prelude-ls": "^1.1.2",
+    "prelude-ls": "^1.2.1",
     "requireg": "^0.2.2",
     "typescript": "^3.9.7",
-    "underscore": "*",
+    "underscore": "^1.10.2",
     "vue": "^2.6.11",
     "vue-hot-reload-api": "^2.3.4",
     "vue-template-compiler": "^2.6.11",
@@ -34,8 +34,10 @@
   "devDependencies": {
     "@types/jquery": "^3.5.0",
     "@types/mkdirp": "^1.0.1",
-    "@types/node": "^14.0.13",
+    "@types/node": "^14.0.23",
     "@types/parse5": "^5.0.3"
   },
-  "browserslist": ["Chrome 80"]
+  "browserslist": [
+    "Chrome 80"
+  ]
 }

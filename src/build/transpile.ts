@@ -1,6 +1,7 @@
 import path from 'path';
 
-import { SearchPath, ModuleRef } from './bundle';
+import { ModuleRef } from './modules';
+import { SearchPath } from './bundle';
 
 
 
