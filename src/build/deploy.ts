@@ -3,9 +3,10 @@ const fs = (0||require)('fs'),   // use native fs
       findUp = (0||require)('find-up');
 import path from 'path';
 import assert from 'assert';
+import * as parse5 from 'parse5';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          ModuleDependency } from './modules';
-import { CompilationUnit, PassThroughModule, HtmlModule, VisitResult }
+import { CompilationUnit, PassThroughModule, HtmlModule, VisitResult, ConcatenatedJSModule }
          from './bundle';
 
 
@@ -98,10 +99,17 @@ class Deployment {
         return new SourceFile(outp);
     }
 
-    makeIndexHtml() {
+    makeIndexHtml(filename?: string) {
         if (!this.include) this.addInclude();
-        var filename = this.newFilename('bundled.html', 'html');
+        filename = filename || this.newFilename('bundled.html', 'html');
         return this.writeFileSync(filename, this._htmlWith(filename));
+    }
+
+    concatenateJS(filename: string, entry: ModuleRef[]) {
+        var cjs = new ConcatenatedJSModule(),
+            deps = new ConcatenatedJSPostprocessor(this, cjs, entry).getDeps();
+
+        return this.writeFileSync(filename, cjs.process(filename, deps));
     }
 
     _relative(target: SourceFile) {
@@ -114,7 +122,7 @@ class Deployment {
 
     _htmlWith(filename: string) {
         var html = this.html || new HtmlModule(DEFAULT_HTML),
-            deps = new HtmlPostprocessor(this).getDeps(html);
+            deps = new HtmlPostprocessor(this, html).getDeps();
         
         return html.process(filename, deps);
     }
@@ -124,14 +132,45 @@ class Deployment {
 const DEFAULT_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"></head></html>`;
 
 
+class Postprocessor<CU extends CompilationUnit, R> {
+    deploy: Deployment
+    unit: CU
+
+    constructor(deploy: Deployment, unit: CU) {
+        this.deploy = deploy;
+        this.unit = unit;
+    }
+
+    getDeps(): ModuleDependency[] {
+        var pre = this.deploy.include ? [{
+                source: undefined, target: undefined, 
+                compiled: this._targets(this.deploy.include)
+            }] : [],
+            load = this.deploy.modules.map(m => ({
+                source: this.referenceOf(m.dmod.ref), target: m.dmod.ref,
+                compiled: this._targets(m.targets)
+            }));
+        return pre.concat(load);
+    }    
+
+    referenceOf(ref: ModuleRef): R { return undefined; }
+
+    _targets(targets: SourceFile[]) {
+        return targets.map(t => this.deploy._relative(t));
+    }
+}
+
+
 /**
  * An auxiliary class for injecting scripts into HTML files.
  */
-class HtmlPostprocessor {
-    deploy: Deployment
+class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
 
-    constructor(deploy: Deployment) {
-        this.deploy = deploy;
+    scripts: {path: string, tag: parse5.DefaultTreeElement}[]
+
+    constructor(deploy: Deployment, unit: HtmlModule) {
+        super(deploy, unit);
+        this.scripts = HtmlPostprocessor.getRefTags(this.unit);
     }
 
     static getRefTags(html: HtmlModule) {
@@ -145,29 +184,31 @@ class HtmlPostprocessor {
         }).filter(x => x);
     }
 
-    getDeps(html: HtmlModule): ModuleDependency[] {
-        var scripts = HtmlPostprocessor.getRefTags(html);
-        const referenceOf = (m: ModuleRef) => {
-            var cn = m.canonicalName,
-                lu = scripts.find(({path}) => cn.endsWith(path));
-            return lu && lu.tag;
-        };
-        var pre = this.deploy.include ? [{
-                source: undefined, target: undefined, 
-                compiled: this._targets(this.deploy.include)
-            }] : [],
-            load = this.deploy.modules.map(m => ({
-                source: referenceOf(m.dmod.ref), target: m.dmod.ref,
-                compiled: this._targets(m.targets)
-            }));
-        return pre.concat(load);
-    }
-
-    _targets(targets: SourceFile[]) {
-        return targets.map(t => this.deploy._relative(t));
+    referenceOf(m: ModuleRef): HtmlRef {
+        var cn = m.canonicalName,
+            lu = this.scripts.find(({path}) => cn.endsWith(path));
+        return lu && lu.tag;
     }
 }
 
+type HtmlRef = parse5.DefaultTreeElement;
+
+
+class ConcatenatedJSPostprocessor extends Postprocessor<ConcatenatedJSModule, {}> {
+
+    entryPoints: ModuleRef[]
+
+    constructor(deploy: Deployment, unit: ConcatenatedJSModule, entryPoints: ModuleRef[]) {
+        super(deploy, unit);
+        this.entryPoints = entryPoints;
+    }
+
+    referenceOf(m: ModuleRef): {} {
+        return this.entryPoints.includes(m) ? {} : undefined;
+    }
+
+    _targets(targets: SourceFile[]) { return targets; }
+}
 
 
 export { DeployModule, Deployment }

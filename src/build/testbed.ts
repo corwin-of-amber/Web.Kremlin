@@ -36,6 +36,7 @@ async function testbed() {
     }
 
     deploy.makeIndexHtml();
+    deploy.concatenateJS('bundled.js', [entryp]);
 
     var nav = new ModuleDepNavigator(ac, entryp);
     $(() => document.body.append(nav.view.$el));

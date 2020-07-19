@@ -1,5 +1,5 @@
-const fs = (0||require)('fs'),   // use native fs
-      path = (0||require)('path');
+const fs = (0||require)('fs') /*as typeof import('fs')*/,   // use native fs
+      path = (0||require)('path') /*as typeof import('path')*/;
 import assert from 'assert';
 
 import * as acorn from 'acorn';
@@ -294,6 +294,34 @@ class HtmlModule implements CompilationUnit {
 }
 
 
+class ConcatenatedJSModule implements CompilationUnit {
+    contentType = 'js'
+
+    process(key: string, deps: ModuleDependency[]) {
+        var contents = this.readAll(deps),
+            init = this.require(deps.filter(d => d.source));
+
+        return [].concat(...contents).concat(init).join('\n');
+    }
+
+    readAll(deps: ModuleDependency[]) {
+        return deps.map(d => (d.compiled || []).map(ref => {
+            if (ref instanceof SourceFile)          return ref.readSync();
+            else if (ref instanceof TransientCode)  return ref.content;
+            else 
+                console.warn(`cannot include '${ref.constructor.name}'`, ref);
+        }).filter(x => x));
+    }
+
+    require(deps: ModuleDependency[]) {
+        return deps.map(d => {
+            var key = d.target.normalize().canonicalName;
+            return `module.exports = kremlin.require('${key}');`;   /** @todo join exports */
+        });
+    }
+}
+
+
 class AcornJSModule implements CompilationUnit {
     dir?: string
     text: string
@@ -552,5 +580,5 @@ namespace AcornUtils {
 
 
 export { AcornCrawl, SearchPath, Library, NodeJSRuntime,
-         CompilationUnit, PassThroughModule, HtmlModule,
+         CompilationUnit, PassThroughModule, HtmlModule, ConcatenatedJSModule,
          VisitOptions, VisitResult }
