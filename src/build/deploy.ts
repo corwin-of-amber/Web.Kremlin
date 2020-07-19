@@ -68,13 +68,16 @@ class Deployment {
     }
 
     newFilename(filename: string, contentType: string) {
-        var ext = `.${contentType}`;
-        filename = this.withoutExt(filename, ext);
-        var cand = filename, i = 0;
-        while (this.files.has(cand)) {
-            cand = `${filename}-${i}`; i++;
+        var ext = `.${contentType}`,
+            basename = this.withoutExt(filename, ext);
+        function *candidates() {
+            yield filename;
+            for (let i = 0; ; i++) yield `${basename}-${i}`;
         }
-        return this.withExt(cand, ext);
+        for (filename of candidates()) 
+            if (!this.files.has(filename)) break;
+        this.files.add(filename);
+        return filename;
     }
 
     withExt(filename: string, ext: string) {

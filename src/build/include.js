@@ -6,7 +6,9 @@ kremlin = {m: {}, loaded: {},
             console.log('%cimport', 'color: green', k);
             var mod = {exports: {}};
             this.loaded[k] = mod;
-            this.m[k](mod, mod.exports);
+            var fun = this.m[k];
+            if (fun) fun(mod, mod.exports);
+            else throw new Error('module not found: ' + k);
             return mod.exports || {};
         }
     },

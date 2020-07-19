@@ -10,7 +10,6 @@ import acornGlobals from 'acorn-globals';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, StubModule,
          ModuleDependency, FileNotFound } from './modules';
 import { Transpiler } from './transpile';
-import './ui/introspect';
 
 
 

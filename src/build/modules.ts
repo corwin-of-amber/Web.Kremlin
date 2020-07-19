@@ -15,11 +15,15 @@ abstract class ModuleRef {
 class PackageDir extends ModuleRef {
     dir: string
     parent?: PackageDir
+    manifestFile: SourceFile
+
     constructor(dir: string, parent?: PackageDir) {
         super();
         this.dir = dir;
         this.parent = parent || PackageDir.lookUp(dir);
+        this.manifestFile = this.getIfExists('package.json');
     }
+    get id() { return JSON.stringify([this.constructor.name, this.dir]); };
     get canonicalName() {
         var m = this.manifest;
         return m.name && m.version ? `${m.name}@${m.version}` :
@@ -28,9 +32,8 @@ class PackageDir extends ModuleRef {
     }
     get manifest() {
         try {
-            var jsonFn = path.join(this.dir, 'package.json');
-            return fs.existsSync(jsonFn) ?
-                JSON.parse(fs.readFileSync(jsonFn, 'utf-8')) : {};
+            return this.manifestFile ?
+                JSON.parse(this.manifestFile.readSync()) : {};
         }
         catch (e) {
             console.error(`failed to read manifest in ${this.dir}`, e);
@@ -74,7 +77,9 @@ class SourceFile extends ModuleRef {
     }
     get id() { return JSON.stringify([this.constructor.name, this.filename]); };
     get canonicalName() {
-        return this.package ? `${this.package.canonicalName}:${path.relative(this.package.dir, this.filename)}`
+        var pkg = this.package;
+        while (pkg && !pkg.manifestFile) pkg = pkg.parent;
+        return pkg ? `${pkg.canonicalName}:${path.relative(pkg.dir, this.filename)}`
              : this.filename;
     }
     readSync() { return fs.readFileSync(this.filename, 'utf-8'); }
