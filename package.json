@@ -28,7 +28,7 @@
     "walk-parse5": "^2.0.0"
   },
   "scripts": {
-    "bootstrap": "npx tsc --project . --module commonjs --outDir build/boot",
+    "bootstrap": "npx tsc --project . --module commonjs --outDir build/boot && node build/boot/cli src/cli.ts src/plug.ts",
     "watch": "parcel watch --hmr-hostname=localhost --public-url=. index.html",
     "start": "nw .&"
   },

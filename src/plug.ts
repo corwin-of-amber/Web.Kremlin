@@ -58,4 +58,5 @@ class Kremlin {
 
 
 
-module.exports = new Kremlin;
+var instance = new Kremlin;
+export default instance;
