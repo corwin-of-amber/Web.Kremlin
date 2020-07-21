@@ -1,5 +1,5 @@
 kremlin = {m: {}, loaded: {},
-    require(k) {
+    require(k, isDefault) {
         var l = this.loaded[k];
         if (l) return l.exports || {};
         else {
@@ -8,8 +8,10 @@ kremlin = {m: {}, loaded: {},
             this.loaded[k] = mod;
             var fun = this.m[k];
             if (fun) fun(mod, mod.exports);
-            //else throw new Error('module not found: ' + k);
-            return mod.exports || {};
+            else throw new Error('module not found: ' + k);
+            var res = mod.exports || {};
+            if (isDefault && res.default) res = res.default;
+            return res;
         }
     },
     export(m, d) {

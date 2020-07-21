@@ -1,5 +1,7 @@
 import path from 'path';
 
+import { ModuleRef, SourceFile } from './build/modules';
+
 
 
 type ProjectDefinition = {
@@ -17,7 +19,7 @@ type ProjectDefinitionNorm = {
 }
 
 type TargetDefinition = {
-    input: string[]
+    input: ModuleRef[]
     output: string
 }
 
@@ -42,11 +44,25 @@ namespace ProjectDefinition {
 
     function target(targetdef: string | TargetDefinition) {
         if (typeof targetdef === 'string') {
-            return {input: [targetdef], output: path.basename(targetdef)};
+            var mo = /^(.*\S)\s+=>\s+(.*)$/.exec(targetdef);
+            if (mo)
+                return {input: sources([mo[1]]), output: mo[2]};
+            else {
+                return {input: sources([targetdef]), output: guessOutputFor(targetdef)};
+            }
         }
         else return targetdef;
     }
+
+    function sources(filenames: string[]) {
+        return filenames.map(fn => new SourceFile(fn));
+    }
+
+    function guessOutputFor(inputFilename: string) {
+        return path.basename(inputFilename).replace(/[.](ts|ls)$/, '.js');
+    }
 }
+
 
 
 export { ProjectDefinition, ProjectDefinitionNorm, TargetDefinition }

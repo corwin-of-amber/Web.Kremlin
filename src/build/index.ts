@@ -17,7 +17,7 @@ class Builder {
 
     constructor(proj: ProjectDefinition = {}) {
         this.proj = ProjectDefinition.normalize(proj);
-        this.entryp = this.proj.main.map(fn => new SourceFile(fn));
+        this.entryp = [].concat(...this.proj.main.map(t => t.input));
     }
 
     get console() {
@@ -46,9 +46,6 @@ class Builder {
 
         var deploy = new Deployment(proj.buildDir);
 
-        if (proj.html)
-            deploy.html = HtmlModule.fromSourceFile(new SourceFile(proj.html));
-
         for (let m of modules.values()) {
             console.log(m);
             deploy.addVisitResult(m);
@@ -58,7 +55,7 @@ class Builder {
             if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
         }
 
-        deploy.makeIndexHtml();
+        deploy.wrapUp(this.proj.main);
     }
 }
 

@@ -281,7 +281,7 @@ class HtmlModule implements CompilationUnit {
         }).filter(x => x);
 
         var tags = [].concat(...deps.map(d =>
-            d.compiled.map(t => this.makeIncludeTag(t))
+            d.compiled.map(t => this.makeIncludeTag(t, d.target))
         )).join('\n');
 
         if (entries.length > 0) {
@@ -300,11 +300,11 @@ class HtmlModule implements CompilationUnit {
         return {text: this.makeInitScript(ref), ...at};
     }
 
-    makeIncludeTag(m: ModuleRef) {
+    makeIncludeTag(m: ModuleRef, origin: ModuleRef) {
         if (m instanceof SourceFile) {
             switch (m.contentType) {
             case 'js': return this.makeScriptTag(m);
-            case 'css': return this.makeStylesheetLinkTag(m);
+            case 'css': return this.makeStylesheetLinkTag(m) + this.makeScriptStub(origin);
             default: return '';
             }
         }
@@ -317,7 +317,11 @@ class HtmlModule implements CompilationUnit {
 
     makeStylesheetLinkTag(m: SourceFile) {
         return `<link href="${m.filename}" rel="stylesheet" type="text/${
-                m.contentType || 'css'}"></script>`;
+                m.contentType || 'css'}">`;
+    }
+
+    makeScriptStub(ref: ModuleRef) {
+        return `<script>kremlin.m['${ref.canonicalName}'] = () => ({});</script>`;
     }
 
     makeInitScript(ref: ModuleRef) {
@@ -454,11 +458,13 @@ class AcornJSModule implements CompilationUnit {
     }
 
     processImport(imp: AcornTypes.ImportDeclaration, ref: ModuleRef) {
-        var lhs: string, refs = [];
+        var lhs: string, refs = [], isDefault = false;
         if (imp.specifiers.length == 1 && 
             (imp.specifiers[0].type === 'ImportDefaultSpecifier'
              || imp.specifiers[0].type === 'ImportNamespaceSpecifier')) {
             lhs = imp.specifiers[0].local.name;
+            if (imp.specifiers[0].type === 'ImportDefaultSpecifier')
+                isDefault = true;
         }
         else {
             var locals = [];
@@ -472,7 +478,7 @@ class AcornJSModule implements CompilationUnit {
                 }
             }
         }
-        return [[imp, `let ${lhs} = ${this.makeRequire(ref)};`]].concat(refs);
+        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`]].concat(refs);
     }
 
     processRequire(req: RequireInvocation, ref: ModuleRef) {
@@ -490,19 +496,19 @@ class AcornJSModule implements CompilationUnit {
             rhs = `{${locals}}`;
         }
         else if (is(exp, 'ExportDefaultDeclaration')) {
-            rhs = this.text.substring(exp.declaration.start, exp.declaration.end);
+            rhs = `{default:${this.text.substring(exp.declaration.start, exp.declaration.end)}}`;
         }
         else throw new Error(`invalid export '${exp.type}'`);
         return [exp, `kremlin.export(module, ${rhs});`];
     }
 
-    makeRequire(ref: ModuleRef) {
+    makeRequire(ref: ModuleRef, isDefault: boolean = false) {
         if (ref instanceof NodeModule) {
             return `require('${ref.name}')`;  // @todo configure by target
         }
         else {
             var key = ref.normalize().canonicalName;
-            return `kremlin.require('${key}')`;
+            return `kremlin.require('${key}', ${isDefault})`;
         }
     }
 

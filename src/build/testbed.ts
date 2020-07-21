@@ -27,7 +27,7 @@ function testbed() {
     var projects: {[name: string]: ProjectDefinition} = {
         kremlin: {
             wd: '.',
-            main: ['index.kremlin.html', 'src/plug.ts']
+            main: ['index.kremlin.html', 'src/plug.ts', 'src/cli.ts']
         },
         author: {
             wd: '/Users/corwin/var/workspace/Web.Author',
@@ -37,14 +37,11 @@ function testbed() {
 
     var proj = ProjectDefinition.normalize(projects['kremlin']);
 
-    var targets = proj.main.map(tgt => ({
-        input: tgt.input.map(fn => new SourceFile(fn)),
-        output: tgt.output
-    }));
+    var targets = [].concat(...proj.main.map(t => t.input));
 
     var deploy = new Deployment(path.resolve(proj.wd, proj.buildDir));
 
-    ac.collect([].concat(...targets.map(tgt => tgt.input)));
+    ac.collect(targets);
     for (let m of ac.modules.visited.values()) {
         console.log(m);
         deploy.addVisitResult(m);
@@ -54,7 +51,7 @@ function testbed() {
         if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
     }
 
-    deploy.wrapUp(targets);
+    deploy.wrapUp(proj.main);
 
     //deploy.makeIndexHtml();
     //deploy.concatenateJS('bundled.js', entryp);
