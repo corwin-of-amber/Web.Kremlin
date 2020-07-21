@@ -1,28 +1,21 @@
 const path = (0||require)('path') as typeof import('path');
 import $ from 'jquery';
 
-import { SourceFile } from './modules';
-import { AcornCrawl, NodeJSRuntime, SearchPath, HtmlModule } from './bundle';
+import { AcornCrawl } from './bundle';
 import { Deployment } from './deploy';
-import { DummyCompiler } from './transpile';
-import { TypeScriptCompiler } from './addons/addon-typescript';
-import { VueCompiler } from './addons/addon-vue';
-import { LiveScriptCompiler } from './addons/addon-livescript';
 
 import { ModuleDepNavigator } from './ui/introspect';
-import { ProjectDefinition } from '../project';
+import { ProjectDefinition, resolve } from '../project';
+import { Builder } from '.';
+import { ReportToConsole } from './ui/report';
 
 
 
 function testbed() {
-    var ac = new AcornCrawl([new NodeJSRuntime()]);
+    var env = Builder.defaultEnvironment();
+    env.report = new ReportToConsole(window.console);
 
-    var compilers = [new TypeScriptCompiler(),
-                     new VueCompiler(),
-                     new LiveScriptCompiler(),
-                     new DummyCompiler(new SearchPath(['build'], []))];
-
-    ac.compilers.push(...compilers);
+    var ac = new AcornCrawl().in(env);
 
     var projects: {[name: string]: ProjectDefinition} = {
         kremlin: {
@@ -31,7 +24,7 @@ function testbed() {
         },
         author: {
             wd: '/Users/corwin/var/workspace/Web.Author',
-            main: '/Users/corwin/var/workspace/Web.Author/src/hub.ls'
+            main: 'src/hub.ls'
         }
     };
 
@@ -39,11 +32,11 @@ function testbed() {
 
     var targets = [].concat(...proj.main.map(t => t.input));
 
-    var deploy = new Deployment(path.resolve(proj.wd, proj.buildDir));
+    var deploy = new Deployment(resolve(proj, proj.buildDir)).in(env);
 
     ac.collect(targets);
     for (let m of ac.modules.visited.values()) {
-        console.log(m);
+        //console.log(m);
         deploy.addVisitResult(m);
     }
 
@@ -52,9 +45,6 @@ function testbed() {
     }
 
     deploy.wrapUp(proj.main);
-
-    //deploy.makeIndexHtml();
-    //deploy.concatenateJS('bundled.js', entryp);
 
     var nav = new ModuleDepNavigator(proj, ac);
     $(() => document.body.append(nav.view.$el));

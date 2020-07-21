@@ -3,6 +3,7 @@
 import path from 'path';
 import { ProjectDefinition, ProjectDefinitionNorm } from './project';
 import { Builder } from './build';
+import { ReportToConsole } from './build/ui/report';
 
 
 
@@ -17,6 +18,7 @@ class Kremlin {
     build(proj: ProjectDefinition) {
         var b = new Builder(proj);
         this.proj = b.proj;
+        b.env.report = new ReportToConsole(this.console);
         return b.build();
     }
 
@@ -60,3 +62,4 @@ class Kremlin {
 
 var instance = new Kremlin;
 export default instance;
+module.exports = instance; // for CommonJS :/

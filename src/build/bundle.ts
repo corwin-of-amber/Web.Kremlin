@@ -10,6 +10,7 @@ import acornGlobals from 'acorn-globals';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, StubModule,
          ModuleDependency, FileNotFound } from './modules';
 import { Transpiler } from './transpile';
+import { Report, ReportSilent } from './ui/report';
 
 
 
@@ -61,6 +62,18 @@ class SearchPath {
 }
 
 
+class Environment {
+    infra: Library[] = []
+    compilers: Transpiler[] = []
+    report: Report = new ReportSilent
+}
+
+class InEnvironment {
+    env: Environment
+    in(env: Environment) { this.env = env; return this; }
+}
+
+
 class Library {
     modules: (ModuleRef & {name: string})[] = []
 }
@@ -74,19 +87,23 @@ class NodeJSRuntime extends Library {
 }
 
 
-class AcornCrawl {
+class AcornCrawl extends InEnvironment {
 
     modules: {
         intrinsic: Map<string, ModuleRef>
         visited: Map<string, VisitResult>
     }
-    compilers: Transpiler[] = []
 
-    constructor(infra: Library[] = []) {
+    constructor() {
+        super();
         this.modules = {intrinsic: new Map, visited: new Map};
-        for (let lib of infra)
+    }
+
+    in(env: Environment) {
+        for (let lib of env.infra)
             for (let m of lib.modules)
                 this.modules.intrinsic.set(m.name, m);
+        return super.in(env);
     }
 
     collect(entryPoints: ModuleRef[]) {
@@ -108,13 +125,12 @@ class AcornCrawl {
     }
 
     visitFile(filename: string, opts: VisitOptions = {}): VisitResult {
-        console.log(`%cvisit ${filename}`, 'color: #8080ff');
         if (filename.match(/\.js$/)) return this.visitJSFile(filename, opts);
         else if (filename.match(/\.css$/)) return this.visitCSSFile(filename, opts);
         else if (filename.match(/\.html$/)) return this.visitHtmlFile(filename, opts);
         else {
             opts = {basedir: path.dirname(filename), ...opts};
-            for (let cmplr of this.compilers) {
+            for (let cmplr of this.env.compilers) {
                 if (cmplr.match(filename)) {
                     try {
                         var c = cmplr.compileFile(filename)
@@ -137,7 +153,7 @@ class AcornCrawl {
     }
 
     visitHtmlFile(filename: string, opts: VisitOptions = {}): VisitResult {
-        return this.visitHtml(HtmlModule.fromSourceFile(new SourceFile(filename)));
+        return this.visitHtml(HtmlModule.fromSourceFile(new SourceFile(filename)).in(this.env));
     }
 
     visitJS(m: AcornJSModule, opts: VisitOptions = {}): VisitResult {
@@ -180,6 +196,7 @@ class AcornCrawl {
     }
 
     visitSourceFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
+        this.env.report.visit(ref);
         return {...this.visitFile(ref.filename, opts), origin: ref};
     }
 
@@ -190,7 +207,7 @@ class AcornCrawl {
     visitTransientCode(ref: TransientCode, opts: VisitOptions = {}): VisitResult {
         switch (ref.contentType) {
         case 'js':
-            return this.visitJS(new AcornJSModule(ref.content), opts);
+            return this.visitJS(new AcornJSModule(ref.content).in(this.env), opts);
         default:
             throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
         }
@@ -207,16 +224,18 @@ type VisitResult = {origin?: ModuleRef, compiled: CompilationUnit, deps: ModuleD
 
 
 interface CompilationUnit {
+    env: Environment
     contentType: string
     process(key: string, deps: ModuleDependency[]): string
 }
 
 
-class PassThroughModule implements CompilationUnit {
+class PassThroughModule extends InEnvironment implements CompilationUnit {
     contentType: string
     content: string
 
     constructor(content: string, contentType: string) {
+        super();
         this.contentType = contentType;
         this.content = content;
     }
@@ -235,7 +254,7 @@ class PassThroughModule implements CompilationUnit {
 }
 
 
-class HtmlModule implements CompilationUnit {
+class HtmlModule extends InEnvironment implements CompilationUnit {
     dir?: string
     text: string
     ast: parse5.Document
@@ -244,6 +263,7 @@ class HtmlModule implements CompilationUnit {
     scripts: parse5.DefaultTreeElement[]
 
     constructor(text: string, dir?: string) {
+        super();
         this.dir = dir;
         this.text = text;
         this.ast = parse5.parse(text, {sourceCodeLocationInfo: true});
@@ -335,7 +355,7 @@ class HtmlModule implements CompilationUnit {
 }
 
 
-class ConcatenatedJSModule implements CompilationUnit {
+class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     contentType = 'js'
 
     process(key: string, deps: ModuleDependency[]) {
@@ -364,7 +384,7 @@ class ConcatenatedJSModule implements CompilationUnit {
 }
 
 
-class AcornJSModule implements CompilationUnit {
+class AcornJSModule extends InEnvironment implements CompilationUnit {
     dir?: string
     text: string
     ast: acorn.Node
@@ -381,6 +401,7 @@ class AcornJSModule implements CompilationUnit {
     }
 
     constructor(text: string, dir?: string) {
+        super();
         this.text = text;
         this.dir = dir;
         this.ast = acorn.parse(text, {sourceType: 'module'});
@@ -623,6 +644,6 @@ namespace AcornUtils {
 
 
 
-export { AcornCrawl, SearchPath, Library, NodeJSRuntime,
+export { Environment, InEnvironment, AcornCrawl, SearchPath, Library, NodeJSRuntime,
          CompilationUnit, PassThroughModule, HtmlModule, ConcatenatedJSModule,
          VisitOptions, VisitResult }

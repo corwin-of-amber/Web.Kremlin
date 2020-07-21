@@ -1,21 +1,22 @@
-import path from 'path';
 import { SourceFile } from './modules';
-import { AcornCrawl, NodeJSRuntime, SearchPath, HtmlModule, VisitResult } from './bundle';
+import { Environment, AcornCrawl, NodeJSRuntime, SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
 import { TypeScriptCompiler } from './addons/addon-typescript';
 import { VueCompiler } from './addons/addon-vue';
 import { LiveScriptCompiler } from './addons/addon-livescript';
-import { ProjectDefinition, ProjectDefinitionNorm } from '../project';
+import { ProjectDefinition, ProjectDefinitionNorm, resolve } from '../project';
 
 
 
 class Builder {
 
+    env: Environment
     proj: ProjectDefinitionNorm
     entryp: SourceFile[]
 
-    constructor(proj: ProjectDefinition = {}) {
+    constructor(proj: ProjectDefinition = {}, env = Builder.defaultEnvironment()) {
+        this.env = env;
         this.proj = ProjectDefinition.normalize(proj);
         this.entryp = [].concat(...this.proj.main.map(t => t.input));
     }
@@ -29,25 +30,16 @@ class Builder {
     }
 
     crawl() {
-        var ac = new AcornCrawl([new NodeJSRuntime()]);
-
-        var compilers = [new TypeScriptCompiler(),
-                         new VueCompiler(),
-                         new LiveScriptCompiler(),
-                         new DummyCompiler(new SearchPath(['build'], []))];
-
-        ac.compilers.push(...compilers);
-
+        var ac = new AcornCrawl().in(this.env);
         return ac.collect(this.entryp);
     }
 
     deploy(modules: Map<string, VisitResult>) {
         let proj = this.proj, console = this.console;
 
-        var deploy = new Deployment(proj.buildDir);
+        var deploy = new Deployment(resolve(proj, proj.buildDir)).in(this.env);
 
         for (let m of modules.values()) {
-            console.log(m);
             deploy.addVisitResult(m);
         }
 
@@ -56,6 +48,16 @@ class Builder {
         }
 
         deploy.wrapUp(this.proj.main);
+    }
+
+    static defaultEnvironment() {
+        var env = new Environment;
+        env.infra = [new NodeJSRuntime()];
+        env.compilers = [new TypeScriptCompiler(),
+                         new VueCompiler(),
+                         new LiveScriptCompiler(),
+                         new DummyCompiler(new SearchPath(['build'], []))];
+        return env;
     }
 }
 

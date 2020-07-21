@@ -1,6 +1,12 @@
 {
   "name": "nwjs-kremlin",
-  "version": "0.0.1",
+  "version": "0.1.0",
+  "description": "Zero-config build & bundle for ES6+ systems",
+  "repository": {
+    "type": "git",
+    "url": "github:corwin-of-amber/nwjs-kremlin"
+  },
+  "license": "MIT",
   "main": "dist/index.html",
   "dependencies": {
     "@vue/component-compiler": "^4.2.3",

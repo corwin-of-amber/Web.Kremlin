@@ -6,8 +6,8 @@ import assert from 'assert';
 import * as parse5 from 'parse5';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          ModuleDependency } from './modules';
-import { CompilationUnit, PassThroughModule, HtmlModule, VisitResult, ConcatenatedJSModule }
-         from './bundle';
+import { InEnvironment, VisitResult, CompilationUnit, PassThroughModule,
+         HtmlModule, ConcatenatedJSModule } from './bundle';
 
 
 
@@ -41,13 +41,13 @@ class DeployModule {
 }
 
 
-class Deployment {
+class Deployment extends InEnvironment {
     outDir: string
     files: Set<string> = new Set
     modules: {dmod: DeployModule, targets: SourceFile[]}[] = []
     include: SourceFile[]
 
-    constructor(outDir: string) { this.outDir = outDir; }
+    constructor(outDir: string) { super(); this.outDir = outDir; }
 
     add(dmod: DeployModule) {
         var fls = this._isDelayed(dmod) ? [] : this.write(dmod);
@@ -94,7 +94,7 @@ class Deployment {
 
     writeFileSync(filename: string, content: string, contentType?: string) {
         var outp = path.join(this.outDir, filename);
-        console.log(`%c> ${outp}`, "color: #ff8080");
+        this.env.report.deploy(outp);
         mkdirp.sync(path.dirname(outp));
         fs.writeFileSync(outp, content);
         this.files.add(filename);
@@ -117,7 +117,7 @@ class Deployment {
     makeEntryHtml(entry: SourceFile, outputFilename: string) {
         if (!this.include) this.addInclude();
 
-        var html = HtmlModule.fromSourceFile(entry),
+        var html = HtmlModule.fromSourceFile(entry).in(this.env),
             deps = new HtmlPostprocessor(this, html).getDeps();
 
         return this.writeFileSync(outputFilename, html.process(outputFilename, deps));
@@ -126,7 +126,7 @@ class Deployment {
     makeEntryJS(entry: ModuleRef[], outputFilename: string) {
         if (!this.include) this.addInclude();
 
-        var cjs = new ConcatenatedJSModule(),
+        var cjs = new ConcatenatedJSModule().in(this.env),
             deps = new ConcatenatedJSPostprocessor(this, cjs, entry).getDeps();
 
         return this.writeFileSync(outputFilename, cjs.process(outputFilename, deps));
@@ -216,7 +216,8 @@ class ConcatenatedJSPostprocessor extends Postprocessor<ConcatenatedJSModule, {}
     }
 
     referenceOf(m: ModuleRef): {} {
-        return this.entryPoints.includes(m) ? {} : undefined;
+        const mid = m.id;
+        return this.entryPoints.some(x => x.id === mid) ? {} : undefined;
     }
 
     _targets(targets: SourceFile[]) { return targets; }

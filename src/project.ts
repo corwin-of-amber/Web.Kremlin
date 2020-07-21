@@ -26,36 +26,38 @@ type TargetDefinition = {
 
 namespace ProjectDefinition {
     export function normalize(proj: ProjectDefinition): ProjectDefinitionNorm {
-        return {
+        var norm: ProjectDefinitionNorm = {
             wd: proj.wd || '.',
-            main: targets(proj.main ? toArray(proj.main) : ['index.js']),
+            main: [],
             buildDir: proj.buildDir || 'build/kremlin',
             window: proj.window || <Window>{}
-        }
+        };
+        norm.main = targets(proj.main ? toArray(proj.main) : ['index.js'], norm);
+        return norm;
     }
 
     function toArray<T>(a : T | T[]) {
         return Array.isArray(a) ? a : [a];
     }
 
-    function targets(defs: (string | TargetDefinition)[]) {
-        return defs.map(target);
+    function targets(defs: (string | TargetDefinition)[], proj: ProjectDefinitionNorm) {
+        return defs.map(d => target(d, proj));
     }
 
-    function target(targetdef: string | TargetDefinition) {
+    function target(targetdef: string | TargetDefinition, proj: ProjectDefinitionNorm) {
         if (typeof targetdef === 'string') {
             var mo = /^(.*\S)\s+=>\s+(.*)$/.exec(targetdef);
             if (mo)
-                return {input: sources([mo[1]]), output: mo[2]};
+                return {input: sources([mo[1]], proj), output: mo[2]};
             else {
-                return {input: sources([targetdef]), output: guessOutputFor(targetdef)};
+                return {input: sources([targetdef], proj), output: guessOutputFor(targetdef)};
             }
         }
         else return targetdef;
     }
 
-    function sources(filenames: string[]) {
-        return filenames.map(fn => new SourceFile(fn));
+    function sources(filenames: string[], proj: ProjectDefinitionNorm) {
+        return filenames.map(fn => new SourceFile(resolve(proj, fn)));
     }
 
     function guessOutputFor(inputFilename: string) {
@@ -64,5 +66,13 @@ namespace ProjectDefinition {
 }
 
 
+function resolve(proj: ProjectDefinitionNorm, ...paths: string[]) {
+    var p = proj.wd;
+    for (let el of paths)
+        p = el.startsWith('/') ? el : path.join(p, el)
+    return p;
+}
 
-export { ProjectDefinition, ProjectDefinitionNorm, TargetDefinition }
+
+
+export { ProjectDefinition, ProjectDefinitionNorm, TargetDefinition, resolve }
