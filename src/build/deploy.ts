@@ -47,12 +47,10 @@ class Deployment {
     modules: {dmod: DeployModule, targets: SourceFile[]}[] = []
     include: SourceFile[]
 
-    html: HtmlModule
-
     constructor(outDir: string) { this.outDir = outDir; }
 
     add(dmod: DeployModule) {
-        var fls = this.write(dmod);
+        var fls = this._isDelayed(dmod) ? [] : this.write(dmod);
         this.modules.push({dmod, targets: fls});
         return fls;
     }
@@ -103,38 +101,58 @@ class Deployment {
         return new SourceFile(outp, null, contentType);
     }
 
-    makeIndexHtml(filename?: string) {
-        if (!this.include) this.addInclude();
-        filename = filename || this.newFilename('bundled.html', 'html');
-        return this.writeFileSync(filename, this._htmlWith(filename));
+    wrapUp(entries: {input: ModuleRef[], output: string}[]) {
+        return [...this.wrapUpIter(entries)];
     }
 
-    concatenateJS(filename: string, entry: ModuleRef[]) {
+    *wrapUpIter(entries: {input: ModuleRef[], output: string}[]) {
+        for (let entry of entries) {
+            if (entry.output.endsWith('.html'))
+                yield this.makeEntryHtml(entry.input[0] as SourceFile, entry.output);
+            else
+                yield this.makeEntryJS(entry.input, entry.output);
+        }
+    }
+
+    makeEntryHtml(entry: SourceFile, outputFilename: string) {
+        if (!this.include) this.addInclude();
+
+        var html = HtmlModule.fromSourceFile(entry),
+            deps = new HtmlPostprocessor(this, html).getDeps();
+
+        return this.writeFileSync(outputFilename, html.process(outputFilename, deps));
+    }
+
+    makeEntryJS(entry: ModuleRef[], outputFilename: string) {
+        if (!this.include) this.addInclude();
+
         var cjs = new ConcatenatedJSModule(),
             deps = new ConcatenatedJSPostprocessor(this, cjs, entry).getDeps();
 
-        return this.writeFileSync(filename, cjs.process(filename, deps));
+        return this.writeFileSync(outputFilename, cjs.process(outputFilename, deps));
+    }
+
+    /**
+     * Some modules can only be processed after all the others have finished
+     * (concatenated JS, main HTML).
+     */
+    _isDelayed(dmod: DeployModule) {
+        return dmod.compiled && dmod.compiled.contentType == 'html';
     }
 
     _relative(target: SourceFile) {
         return Deployment._relative(this.outDir, target);
     }
 
+    _kindOf(input: ModuleRef) {
+        return input instanceof SourceFile ? input.contentType : undefined;
+    }
+
     static _relative(from: string, target: SourceFile) {
         return new SourceFile(path.relative(from, target.filename),
                               target.package, target.contentType);
     }
-
-    _htmlWith(filename: string) {
-        var html = this.html || new HtmlModule(DEFAULT_HTML),
-            deps = new HtmlPostprocessor(this, html).getDeps();
-        
-        return html.process(filename, deps);
-    }
 }
-
-
-const DEFAULT_HTML = `<!DOCTYPE html><html><head><meta charset="utf-8"></head></html>`;
 
 
 class Postprocessor<CU extends CompilationUnit, R> {
@@ -175,18 +193,7 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
 
     constructor(deploy: Deployment, unit: HtmlModule) {
         super(deploy, unit);
-        this.scripts = HtmlPostprocessor.getRefTags(this.unit);
-    }
-
-    static getRefTags(html: HtmlModule) {
-        if (!html.scripts) html.extractScripts();
-        return html.scripts.map(sc => {
-            var src = sc.attrs.find(a => a.name == 'src');
-            if (src) {
-                var mo = /^kremlin:\/\/(.*)$/.exec(src.value);
-                if (mo) return {path: mo[1], tag: sc};
-            }
-        }).filter(x => x);
+        this.scripts = unit.getRefTags();
     }
 
     referenceOf(m: ModuleRef): HtmlRef {

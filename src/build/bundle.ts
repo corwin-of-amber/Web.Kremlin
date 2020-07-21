@@ -111,6 +111,7 @@ class AcornCrawl {
         console.log(`%cvisit ${filename}`, 'color: #8080ff');
         if (filename.match(/\.js$/)) return this.visitJSFile(filename, opts);
         else if (filename.match(/\.css$/)) return this.visitCSSFile(filename, opts);
+        else if (filename.match(/\.html$/)) return this.visitHtmlFile(filename, opts);
         else {
             opts = {basedir: path.dirname(filename), ...opts};
             for (let cmplr of this.compilers) {
@@ -135,6 +136,10 @@ class AcornCrawl {
         return {compiled: pt, deps: []};
     }
 
+    visitHtmlFile(filename: string, opts: VisitOptions = {}): VisitResult {
+        return this.visitHtml(HtmlModule.fromSourceFile(new SourceFile(filename)));
+    }
+
     visitJS(m: AcornJSModule, opts: VisitOptions = {}): VisitResult {
         var sp = SearchPath.from(opts.basedir || m.dir);
 
@@ -144,11 +149,24 @@ class AcornCrawl {
             }
             catch (e) { return new StubModule(src, e); }
         };
-        var mkdep = (u: any, target: ModuleRef) => ({source: u, target});
+        var mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
 
         m.extractImports();
         var deps = m.imports.map(u => mkdep(u, lookup(u.source.value)))
             .concat(m.requires.map(u => mkdep(u, lookup(u.arguments[0].value))));
+        return {compiled: m, deps};
+    }
+
+    visitHtml(m: HtmlModule, opts: VisitOptions = {}): VisitResult {
+        var dir = opts.basedir || m.dir, sp = new SearchPath([dir], [dir]);
+
+        var lookup = (src: string) => {
+            try       { return sp.lookup(src); }
+            catch (e) { return new StubModule(src, e); }
+        };
+        var mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
+
+        var deps = m.getRefTags().map(({path, tag}) => mkdep(tag, lookup(path)));
         return {compiled: m, deps};
     }
 
@@ -218,13 +236,15 @@ class PassThroughModule implements CompilationUnit {
 
 
 class HtmlModule implements CompilationUnit {
+    dir?: string
     text: string
     ast: parse5.Document
     contentType = 'html'
 
     scripts: parse5.DefaultTreeElement[]
 
-    constructor(text: string) {
+    constructor(text: string, dir?: string) {
+        this.dir = dir;
         this.text = text;
         this.ast = parse5.parse(text, {sourceCodeLocationInfo: true});
     }
@@ -235,6 +255,21 @@ class HtmlModule implements CompilationUnit {
             if (node.nodeName === 'script')
                 this.scripts.push(node as parse5.DefaultTreeElement);
         });
+    }
+
+    /**
+     * Extracts script tags with `kremlin://` URIs.
+     * @todo auto-detect other tags referring to modules.
+     */
+    getRefTags() {
+        if (!this.scripts) this.extractScripts();
+        return this.scripts.map(sc => {
+            var src = sc.attrs.find(a => a.name == 'src');
+            if (src) {
+                var mo = /^kremlin:\/\/(.*)$/.exec(src.value);
+                if (mo) return {path: mo[1], tag: sc};
+            }
+        }).filter(x => x);
     }
 
     process(key: string, deps: ModuleDependency[]) {
@@ -291,7 +326,7 @@ class HtmlModule implements CompilationUnit {
     }
 
     static fromSourceFile(m: SourceFile) {
-        return new this(m.readSync());
+        return new this(m.readSync(), path.dirname(m.filename));
     }
 }
 
@@ -307,12 +342,13 @@ class ConcatenatedJSModule implements CompilationUnit {
     }
 
     readAll(deps: ModuleDependency[]) {
-        return deps.map(d => (d.compiled || []).map(ref => {
-            if (ref instanceof SourceFile)          return ref.readSync();
-            else if (ref instanceof TransientCode)  return ref.content;
-            else 
-                console.warn(`cannot include '${ref.constructor.name}'`, ref);
-        }).filter(x => x));
+        return deps.map(d => (d.compiled || []).map(ref =>
+            ref instanceof SourceFile && ref.contentType === 'js' ?
+                ref.readSync()
+            : ref instanceof TransientCode && ref.contentType === 'js' ?
+                ref.content
+            : undefined
+        ).filter(x => x));
     }
 
     require(deps: ModuleDependency[]) {
