@@ -6,7 +6,7 @@ import { ModuleRef, SourceFile } from './build/modules';
 
 type ProjectDefinition = {
     wd?: string
-    main?: string | string[]
+    main?: string | (string | TargetDefinition)[]
     buildDir?: string
     window?: Window
 }

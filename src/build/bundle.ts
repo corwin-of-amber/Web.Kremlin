@@ -109,7 +109,7 @@ class AcornCrawl extends InEnvironment {
     collect(entryPoints: ModuleRef[]) {
         var wl = [...entryPoints], vs = this.modules.visited;
         while (wl.length > 0) {
-            var u = wl.pop(), key = u.id;
+            var u = wl.pop().normalize(), key = u.id;
             if (!vs.has(key)) {
                 var r = this.visitModuleRef(u);
                 wl.push(...r.deps.map(d => d.target));

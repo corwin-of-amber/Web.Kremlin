@@ -22,11 +22,11 @@ class ReportToConsole implements Report {
 
     visit(ref: ModuleRef) {
         if (ref instanceof SourceFile)
-            console.log(`%cvisit ${ref.filename}`, 'color: #8080ff');
+            this.console.log(`%cvisit ${ref.filename}`, 'color: #8080ff');
     }
 
     deploy(outFilename: string) {
-        console.log(`%c> ${outFilename}`, "color: #ff8080");
+        this.console.log(`%c> ${outFilename}`, "color: #ff8080");
     }
 }
 

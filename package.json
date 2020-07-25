@@ -7,7 +7,7 @@
     "url": "github:corwin-of-amber/nwjs-kremlin"
   },
   "license": "MIT",
-  "main": "dist/index.html",
+  "main": "index.js",
   "dependencies": {
     "@vue/component-compiler": "^4.2.3",
     "acorn": "^7.3.1",
@@ -21,6 +21,7 @@
     "jison": "^0.4.18",
     "jquery": "^3.5.1",
     "livescript": "^1.6.0",
+    "lodash": "^4.17.19",
     "mkdirp": "^1.0.4",
     "nearley": "^2.19.5",
     "parse5": "^6.0.0",
@@ -40,6 +41,7 @@
   },
   "devDependencies": {
     "@types/jquery": "^3.5.0",
+    "@types/lodash": "^4.14.158",
     "@types/mkdirp": "^1.0.1",
     "@types/node": "^14.0.23",
     "@types/parse5": "^5.0.3"
