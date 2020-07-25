@@ -124,36 +124,40 @@ class AcornCrawl extends InEnvironment {
         return vs.get(key) || this.visitModuleRef(ref);
     }
 
-    visitFile(filename: string, opts: VisitOptions = {}): VisitResult {
-        if (filename.match(/\.js$/)) return this.visitJSFile(filename, opts);
-        else if (filename.match(/\.css$/)) return this.visitCSSFile(filename, opts);
-        else if (filename.match(/\.html$/)) return this.visitHtmlFile(filename, opts);
+    visitFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
+        var fn = ref.filename;
+        if      (fn.endsWith('.js'))   return this.visitJSFile(ref, opts);
+        else if (fn.endsWith('.css'))  return this.visitCSSFile(ref, opts);
+        else if (fn.endsWith('.html')) return this.visitHtmlFile(ref, opts);
         else {
-            opts = {basedir: path.dirname(filename), ...opts};
+            opts = {basedir: path.dirname(fn), ...opts};
             for (let cmplr of this.env.compilers) {
-                if (cmplr.match(filename)) {
+                if (cmplr.match(fn)) {
                     try {
-                        var c = cmplr.compileFile(filename)
+                        var c = cmplr.compileFile(fn)
                     }
-                    catch (e) { console.error(e); return this.visitLeaf(new StubModule(filename, e)); }
+                    catch (e) {
+                        this.env.report.error(ref, e);
+                        return this.visitLeaf(new StubModule(fn, e)); 
+                    }
                     return this.visitModuleRef(c, opts);
                 }
             }
-            throw new Error(`no compiler for '${filename}'`);
+            throw new Error(`no compiler for '${fn}'`);
         }
     }
 
-    visitJSFile(filename: string, opts: VisitOptions = {}): VisitResult {
-        return this.visitJS(AcornJSModule.fromFile(filename), opts);
+    visitJSFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
+        return this.visitJS(AcornJSModule.fromSourceFile(ref), opts);
     }
 
-    visitCSSFile(filename: string, opts: VisitOptions = {}): VisitResult {
-        var pt = PassThroughModule.fromSourceFile(new SourceFile(filename));
+    visitCSSFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
+        var pt = PassThroughModule.fromSourceFile(ref);
         return {compiled: pt, deps: []};
     }
 
-    visitHtmlFile(filename: string, opts: VisitOptions = {}): VisitResult {
-        return this.visitHtml(HtmlModule.fromSourceFile(new SourceFile(filename)).in(this.env));
+    visitHtmlFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
+        return this.visitHtml(HtmlModule.fromSourceFile(ref).in(this.env), opts);
     }
 
     visitJS(m: AcornJSModule, opts: VisitOptions = {}): VisitResult {
@@ -197,7 +201,7 @@ class AcornCrawl extends InEnvironment {
 
     visitSourceFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         this.env.report.visit(ref);
-        return {...this.visitFile(ref.filename, opts), origin: ref};
+        return {...this.visitFile(ref, opts), origin: ref};
     }
 
     visitPackageDir(ref: PackageDir, opts: VisitOptions = {}): VisitResult {

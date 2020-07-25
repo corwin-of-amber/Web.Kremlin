@@ -6,6 +6,7 @@ import { TypeScriptCompiler } from './addons/addon-typescript';
 import { VueCompiler } from './addons/addon-vue';
 import { LiveScriptCompiler } from './addons/addon-livescript';
 import { ProjectDefinition, ProjectDefinitionNorm, resolve } from '../project';
+import { Report } from './ui/report';
 
 
 
@@ -27,6 +28,7 @@ class Builder {
 
     build() {
         this.deploy(this.crawl());
+        if (!this.isOk()) this.console.error("build failed.");
     }
 
     crawl() {
@@ -48,6 +50,10 @@ class Builder {
         }
 
         deploy.wrapUp(this.proj.main);
+    }
+
+    isOk() {
+        return this.env.report.status === Report.Status.OK;
     }
 
     static defaultEnvironment() {

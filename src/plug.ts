@@ -33,9 +33,13 @@ class Kremlin {
     }
 
     reload(proj?: ProjectDefinition) {
+        var wasWatching = !!this.watcher;
         this.unwatch();
         this.build(proj);
-        this._reload();
+        if (this.isOk())
+            this._reload();
+        else if (wasWatching)
+            this._watch();
     }
 
     watch(proj?: ProjectDefinition) {
@@ -77,6 +81,10 @@ class Kremlin {
             }
         }
         this._reload();
+    }
+
+    isOk() {
+        return this.builder && this.builder.isOk();
     }
 
     _reload() {
