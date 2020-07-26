@@ -479,6 +479,8 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 [].concat(...imports, ...requires, ...exports)
                 .map(([node, text]) => ({...node, text})));
 
+        if (!prog.match(/\n\s+$/)) prog += '\n'; // in case prog ends with single-line comment
+
         return `kremlin.m['${key}'] = (module,exports) => {${prog}};`;
     }
 

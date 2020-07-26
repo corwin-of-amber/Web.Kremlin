@@ -10,7 +10,7 @@ import { Transpiler } from '../transpile';
 
 
 class TypeScriptCompiler implements Transpiler {
-    opts: {}
+    opts = {inlineSources: true, inlineSourceMap: true}
     cc: typeof TypeScript
 
     match(filename: string) { return !!filename.match(/[.]ts$/); }
@@ -33,7 +33,14 @@ class TypeScriptCompiler implements Transpiler {
     getConfigFor(filename: string) {
         var cwd = path.dirname(filename),
             found = findUp.sync('tsconfig.json', {cwd});
-        return found ? JSON.parse(fs.readFileSync(found, 'utf-8')) : {};
+        return this._opts(found && JSON.parse(fs.readFileSync(found, 'utf-8')), filename);
+    }
+
+    _opts(config: TypeScript.TranspileOptions = {}, filename?: string) {
+        var co = config.compilerOptions;
+        config.compilerOptions = {...this.opts, ...co};
+        config.fileName = filename;
+        return config;
     }
 }
 
