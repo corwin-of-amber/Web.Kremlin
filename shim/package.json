@@ -1,0 +1,23 @@
+{
+    "name": "nwjs-kremlin-shim",
+    "version": "0.1.0",
+    "description": "Collected packages for shimming Node.js in browsers",
+    "repository": {
+        "type": "git",
+        "url": "github:corwin-of-amber/nwjs-kremlin"
+    },
+    "license": "MIT",
+    "dependencies": {
+        "assert": "^2.0.0",
+        "browserify-zlib": "^0.2.0",
+        "buffer": "^5.6.0",
+        "crypto-browserify": "^3.12.0",
+        "events": "^3.2.0",
+        "path": "^0.12.7",
+        "process": "^0.11.10",
+        "querystring": "^0.2.0",
+        "stream-browserify": "^3.0.0",
+        "url": "^0.11.0",
+        "util": "^0.12.3"
+    }
+}

@@ -7,8 +7,8 @@ import * as acornWalk from 'acorn-walk';
 import * as parse5 from 'parse5';
 import parse5Walk from 'walk-parse5'
 import acornGlobals from 'acorn-globals';
-import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, StubModule,
-         ModuleDependency, FileNotFound } from './modules';
+import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, ShimModule,
+         StubModule, ModuleDependency, FileNotFound } from './modules';
 import { Transpiler } from './transpile';
 import { Report, ReportSilent } from './ui/report';
 
@@ -18,36 +18,58 @@ class SearchPath {
     dirs: string[]
     wdirs: string[]
     extensions: string[]
+    aliases: {[mod: string]: string}
 
-    constructor(dirs: string[], wdirs: string[]) {
+    constructor(dirs: string[], wdirs: string[], aliases = {}) {
         this.dirs = dirs;
         this.wdirs = wdirs;
         this.extensions = ['.js', '.ts'];
+        this.aliases = aliases;
     }
 
     lookup(pth: string) {
+        pth = this.aliases[pth] || pth;
         var inDirs = pth.startsWith('.') ? this.wdirs : this.dirs;
         for (let d of inDirs) {
-            var rp = path.join(d, pth), mp: ModuleRef;
-            if (mp = this.existsModule(rp)) return mp;
+            var mp = this.existsModule(d, pth);
+            if (mp) return mp;
         }
         throw new FileNotFound(pth, inDirs);
     }
 
-    existsModule(pth: string): PackageDir | SourceFile {
-        try {
-            var stat = fs.statSync(pth);
-            if (stat.isDirectory()) return new PackageDir(pth);
-            else if (stat.isFile()) return new SourceFile(pth);
+    existsModule(basedir: string, pth: string): PackageDir | SourceFile {
+        var basename = path.basename(pth),
+            pels = path.dirname(pth).split('/'), cwd = basedir;
+        for (let pel of pels) {
+            if (!(cwd = this._cd(cwd, pel))) return;
         }
-        catch { }
-        for (var ext of this.extensions) {
+        // files take precedence over directories
+        var fpath = path.join(cwd, basename);
+        for (var ext of ['', ...this.extensions]) {
             try {
-                var epth = pth + ext,
-                    stat = fs.statSync(epth);
-                if (stat.isFile()) return new SourceFile(epth);
+                var epath = fpath + ext,
+                    stat = fs.statSync(epath);
+                if (stat.isFile()) return new SourceFile(epath);
             }
             catch { }
+        }
+        if (cwd = this._cd(cwd, basename))
+            return new PackageDir(cwd);
+    }
+
+    _cd(cwd: string, rel: string) {
+        cwd = path.join(cwd, rel);
+        try {
+            if (fs.statSync(cwd).isDirectory()) return cwd;
+        }
+        catch { }
+    }
+
+    static _aliased(cwd: string) {
+        var p = new PackageDir(cwd);
+        if (p.manifestFile) {
+            var m = p.manifest;
+            if (typeof m.browser == 'object') return m.browser;
         }
     }
 
@@ -57,7 +79,8 @@ class SearchPath {
             d = path.dirname(d);
             l.push(d);
         }
-        return new SearchPath(l.map(d => path.join(d, 'node_modules')), [dir]);
+        return new SearchPath(l.map(d => path.join(d, 'node_modules')), [dir],
+                              this._aliased(dir));
     }
 }
 
@@ -81,8 +104,26 @@ class Library {
 class NodeJSRuntime extends Library {
     constructor() {
         super();
-        this.modules = ['fs', 'path', 'events', 'assert', 'zlib', 'stream', 'util']
+        this.modules = ['fs', 'path', 'events', 'assert', 'zlib', 'stream', 'util',
+                        'crypto', 'net', 'tty', 'os', 'constants', 'vm',
+                        'http', 'https', 'url', 'querystring', 'tls',
+                        'buffer', 'process', 'child_process']
             .map(m => new NodeModule(m));
+    }
+}
+
+class BrowserShims extends Library {
+    constructor() {
+        super();
+        const findUp = (0||require)('find-up'),
+              cwd = typeof __dirname !== 'undefined' ? __dirname : '.',
+              shimdir = findUp.sync('shim', {cwd, type: 'directory'}),
+              altnames = {zlib: 'browserify-zlib', crypto: 'crypto-browserify',
+                          stream: 'stream-browserify'};
+        this.modules.push(...['path', 'events', 'assert', 'util', 'zlib', 'stream',
+                              'url', 'querystring', 'buffer', 'process']
+            .map(m => new ShimModule(m, 
+                new PackageDir(path.join(shimdir, 'node_modules', altnames[m] || m)))));
     }
 }
 
@@ -128,6 +169,7 @@ class AcornCrawl extends InEnvironment {
         var fn = ref.filename;
         if      (fn.endsWith('.js'))   return this.visitJSFile(ref, opts);
         else if (fn.endsWith('.css'))  return this.visitCSSFile(ref, opts);
+        else if (fn.endsWith('.json')) return this.visitJSONFile(ref, opts);
         else if (fn.endsWith('.html')) return this.visitHtmlFile(ref, opts);
         else {
             opts = {basedir: path.dirname(fn), ...opts};
@@ -153,6 +195,11 @@ class AcornCrawl extends InEnvironment {
 
     visitCSSFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         var pt = PassThroughModule.fromSourceFile(ref);
+        return {compiled: pt, deps: []};
+    }
+
+    visitJSONFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
+        var pt = PassThroughModule.fromSourceFile(ref);  /** @todo */
         return {compiled: pt, deps: []};
     }
 
@@ -205,7 +252,10 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitPackageDir(ref: PackageDir, opts: VisitOptions = {}): VisitResult {
-        return this.visitModuleRef(ref.getMain(), opts);
+        try {
+            return this.visitModuleRef(ref.getMain(), opts);
+        }
+        catch (e) { return this.visitLeaf(new StubModule(ref.canonicalName, e)); }
     }
 
     visitTransientCode(ref: TransientCode, opts: VisitOptions = {}): VisitResult {
@@ -363,10 +413,11 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     contentType = 'js'
 
     process(key: string, deps: ModuleDependency[]) {
-        var contents = this.readAll(deps),
+        var preamble = '#!/usr/bin/env node',  /** @todo only if executable */
+            contents = this.readAll(deps),
             init = this.require(deps.filter(d => d.source));
 
-        return [].concat(...contents).concat(init).join('\n');
+        return [preamble].concat(...contents).concat(init).join('\n');
     }
 
     readAll(deps: ModuleDependency[]) {
@@ -380,10 +431,8 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     }
 
     require(deps: ModuleDependency[]) {
-        return deps.map(d => {
-            var key = d.target.normalize().canonicalName;
-            return `module.exports = kremlin.require('${key}');`;   /** @todo join exports */
-        });
+        var keys = deps.map(d => d.target.normalize().canonicalName);
+        return `{ let c = kremlin.requires(${JSON.stringify(keys)}); if (typeof module !== 'undefined') module.exports = c; }`;
     }
 }
 
@@ -650,6 +699,6 @@ namespace AcornUtils {
 
 
 
-export { Environment, InEnvironment, AcornCrawl, SearchPath, Library, NodeJSRuntime,
-         CompilationUnit, PassThroughModule, HtmlModule, ConcatenatedJSModule,
-         VisitOptions, VisitResult }
+export { Environment, InEnvironment, Library, NodeJSRuntime, BrowserShims,
+         AcornCrawl, SearchPath, VisitOptions, VisitResult,
+         CompilationUnit, PassThroughModule, HtmlModule, ConcatenatedJSModule }

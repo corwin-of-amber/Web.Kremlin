@@ -14,6 +14,13 @@ kremlin = {m: {}, loaded: {},
             return res;
         }
     },
+    requires(ks) {
+        if (ks.length === 0) return {};
+        var c = this.require(ks[0]);
+        for (let k of ks.slice(1))
+            Object.assign(c, this.require(k));  // what if c is not an object?
+        return c;
+    },
     export(m, d) {
         m.exports = Object.assign(m.exports || {}, d);
     },
@@ -23,7 +30,10 @@ kremlin = {m: {}, loaded: {},
         return m;
     },
     node_startup(deps) {
-        for (let m of deps) this.node_require(m);
+        if (typeof process === 'undefined') process = {env: {}, browser: true};
+        if (typeof global === 'undefined') global = window;
+        if (typeof require !== 'undefined')
+            for (let m of deps) this.node_require(m);
     }
 };
 

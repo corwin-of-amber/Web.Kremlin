@@ -50,14 +50,17 @@ class PackageDir extends ModuleRef {
         if (fs.existsSync(fn)) return new SourceFile(fn, this);
     }
     getMain(): SourceFile {
-        for (let candidate of [this.manifest.main, 'index.js', 'index.ts'].filter(x => x)) {
-            var sf = this.getIfExists(candidate);
-            if (sf) return sf;
+        for (let candidate of [this.manifest.browser, this.manifest.main, 'index']
+                              .filter(x => typeof x === 'string')) {
+            for (let ext of ['', '.js', '.ts']) {  // oops: hard-coded extensions here
+                var sf = this.getIfExists(candidate + ext);
+                if (sf) return sf;
+            }
         }
         throw new MainFileNotFound(this);
     }
-    normalize(): SourceFile {
-        return this.getMain();
+    normalize(): SourceFile | PackageDir {
+        try { return this.getMain(); } catch { return this; }
     }
 
     static lookUp(from: string): PackageDir {
@@ -104,6 +107,19 @@ class NodeModule extends ModuleRef {
     get canonicalName() { return `node://${this.name}`; }
 }
 
+class ShimModule extends ModuleRef {
+    name: string
+    subst: ModuleRef
+    constructor(name: string, subst: ModuleRef) {
+        super();
+        this.name = name;
+        this.subst = subst;
+    }
+    get id() { return JSON.stringify([this.constructor.name, this.name]); };
+    get canonicalName() { return `shim://${this.name}`; }
+    normalize() { return this.subst.normalize(); }
+}
+
 class StubModule extends ModuleRef {
     name: string
     reason: ModuleResolutionError
@@ -140,5 +156,6 @@ class MainFileNotFound extends ModuleResolutionError {
 
 
 
-export { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, StubModule,
-         ModuleDependency, ModuleResolutionError, FileNotFound }
+export { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule,
+         ShimModule, StubModule, ModuleDependency,
+         ModuleResolutionError, FileNotFound }

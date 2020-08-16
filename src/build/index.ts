@@ -1,5 +1,6 @@
 import { SourceFile } from './modules';
-import { Environment, AcornCrawl, NodeJSRuntime, SearchPath, VisitResult } from './bundle';
+import { Environment, AcornCrawl, NodeJSRuntime, BrowserShims,
+         SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
 import { TypeScriptCompiler } from './addons/addon-typescript';
@@ -58,7 +59,7 @@ class Builder {
 
     static defaultEnvironment() {
         var env = new Environment;
-        env.infra = [new NodeJSRuntime()];
+        env.infra = [new NodeJSRuntime(), new BrowserShims()];
         env.compilers = [new TypeScriptCompiler(),
                          new VueCompiler(),
                          new LiveScriptCompiler(),
