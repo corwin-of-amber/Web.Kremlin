@@ -8,6 +8,9 @@
   },
   "license": "MIT",
   "main": "index.js",
+  "bin": {
+    "kremlin": "build/kremlin/cli.js"
+  },
   "dependencies": {
     "@vue/component-compiler": "^4.2.3",
     "acorn": "^7.3.1",

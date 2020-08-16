@@ -15,6 +15,8 @@ class Kremlin {
     builder: Builder
     watcher: FSWatcher
 
+    persist: boolean = false  // whether to keep app running while watch is active
+
     get console() {
         return (this.proj && (<any>this.proj.window).console) || console;
     }
@@ -36,14 +38,14 @@ class Kremlin {
         var wasWatching = !!this.watcher;
         this.unwatch();
         this.build(proj);
-        if (this.isOk())
-            this._reload();
+        if (this.isOk() && this._reload()) { }
         else if (wasWatching)
-            this._watch();
+            setTimeout(() => this._watch(), 1000);
     }
 
-    watch(proj?: ProjectDefinition) {
+    watch(proj?: ProjectDefinition, persist = this.persist) {
         this.prepare(proj);
+        this.persist = persist;
         this._watch();
         return this;
     }
@@ -54,7 +56,7 @@ class Kremlin {
 
         var trigger = _.debounce(() => this.reload(), 200);
 
-        var watcher = fs.watch(proj.wd, {persistent: false, recursive: true}, 
+        var watcher = fs.watch(proj.wd, {persistent: this.persist, recursive: true}, 
             (_event, filename) => {
                 if (filename && this._ignored(filename)) return ;
                 this.console.log(`%c[changed] ${filename}`, 'color: #bbb');
@@ -73,6 +75,12 @@ class Kremlin {
         return this;
     }
 
+    buildWatch(proj?: ProjectDefinition, persist = this.persist) {
+        this.build(proj);
+        // allow fsevents time to settle
+        setTimeout(() => this.watch(proj, persist), 1000);
+    }
+
     reboot() { 
         for (let k in global.require.cache) {
             if (global.require.cache[k].exports === module.exports
@@ -88,8 +96,10 @@ class Kremlin {
     }
 
     _reload() {
-        if (this.proj && this.proj.window.location)
+        if (this.proj && this.proj.window.location) {
             this.proj.window.location.reload();
+            return true;
+        }
     }
 
     _ignored(filename: string) {

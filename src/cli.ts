@@ -1,6 +1,21 @@
-import instance from './plug';
+import commander from 'commander';
+import _ from './plug';
 
-if (process.argv.length > 2)
-    instance.build({main: process.argv.slice(2)});
-else
-    console.log('usage: kremlin <entry-points>');
+function command(argv: string[]) {
+    var o = commander
+        .description('Kremlin bundler command-line interface')
+        .usage('[options] <entry-points>')
+        .option('-w, --watch')
+        .parse(argv);
+
+    if (o.args.length == 0) return o.outputHelp();
+
+    var proj = {main: o.args};
+
+    if (o.watch)
+        _.buildWatch(proj, true)
+    else
+        _.build(proj);
+}
+
+command(process.argv);
