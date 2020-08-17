@@ -12,7 +12,7 @@
     "kremlin": "build/kremlin/cli.js"
   },
   "dependencies": {
-    "@vue/component-compiler": "^4.2.3",
+    "@vue/component-compiler": "https://github.com/corwin-of-amber/vue-component-compiler/releases/download/v4.2.3-0/vue-component-compiler-4.2.3-0.tar.gz",
     "acorn": "^7.3.1",
     "acorn-globals": "git+https://github.com/LongTengDao-fork-B/acorn-globals.git",
     "acorn-walk": "^7.2.0",
@@ -21,7 +21,6 @@
     "commander": "^6.0.0",
     "find-up": "^4.1.0",
     "glob": "^7.1.6",
-    "jison": "^0.4.18",
     "jquery": "^3.5.1",
     "livescript": "^1.6.0",
     "lodash": "^4.17.19",

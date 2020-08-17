@@ -125,6 +125,7 @@ class StubModule extends ModuleRef {
     reason: ModuleResolutionError
     constructor(name: string, reason: ModuleResolutionError)
     { super(); this.name = name; this.reason = reason; }
+    get id() { return JSON.stringify([this.constructor.name, this.name]); };
     get canonicalName() { return `stub://${this.name}`; }
 }
 
