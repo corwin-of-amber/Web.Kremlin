@@ -10,6 +10,7 @@ import acornGlobals from 'acorn-globals';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, ShimModule,
          StubModule, ModuleDependency, FileNotFound } from './modules';
 import { Transpiler } from './transpile';
+import { BuildCache } from './cache';
 import { Report, ReportSilent } from './ui/report';
 
 
@@ -88,6 +89,7 @@ class SearchPath {
 class Environment {
     infra: Library[] = []
     compilers: Transpiler[] = []
+    cache: BuildCache = new BuildCache
     report: Report = new ReportSilent
 }
 
@@ -152,7 +154,7 @@ class AcornCrawl extends InEnvironment {
         while (wl.length > 0) {
             var u = wl.pop().normalize(), key = u.id;
             if (!vs.has(key)) {
-                var r = this.visitModuleRef(u);
+                var r = this.memo(u, u => this.visitModuleRef(u));
                 wl.push(...r.deps.map(d => d.target));
                 vs.set(key, r);
             }
@@ -163,6 +165,10 @@ class AcornCrawl extends InEnvironment {
     peek(ref: ModuleRef) {
         var vs = this.modules.visited, key = ref.id;
         return vs.get(key) || this.visitModuleRef(ref);
+    }
+
+    memo(m: ModuleRef, op: (m: ModuleRef) => VisitResult) {
+        return this.env.cache.memo(m, 'visit', op);
     }
 
     visitFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
@@ -220,7 +226,8 @@ class AcornCrawl extends InEnvironment {
 
         m.extractImports();
         var deps = m.imports.map(u => mkdep(u, lookup(u.source.value)))
-            .concat(m.requires.map(u => mkdep(u, lookup(u.arguments[0].value))));
+            .concat(m.requires.map(u => mkdep(u, lookup(u.arguments[0].value))))
+            .concat(m.exportsFrom.map(u => mkdep(u, lookup(u.source.value))));
         return {compiled: m, deps};
     }
 
@@ -496,6 +503,11 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         return s;
     }
 
+    get exportsFrom() {
+        return this.exports.filter(u => this.isExportFrom(u)) as
+                AcornTypes.ExportNamedDeclaration[];
+    }
+
     isImport(node: acorn.Node): node is AcornTypes.ImportDeclaration {
         return AcornUtils.is(node, 'ImportDeclaration');
     }
@@ -508,7 +520,17 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     }
 
     isExport(node: acorn.Node): node is AcornTypes.ExportDeclaration {
-        return AcornUtils.is(node, 'ExportNamedDeclaration') || AcornUtils.is(node, 'ExportDefaultDeclaration');
+        return AcornUtils.is(node, 'ExportNamedDeclaration') ||
+               AcornUtils.is(node, 'ExportDefaultDeclaration');
+    }
+
+    isExportFrom(node: acorn.Node): node is AcornTypes.ExportNamedDeclaration {
+        return AcornUtils.is(node, 'ExportNamedDeclaration') && !!node.source;
+    }
+
+    _isShorthandProperty(node: AcornTypes.Identifier) {
+        return node.parents.slice(-2).some(p =>
+            AcornUtils.is(p, "Property") && p.shorthand);
     }
 
     process(key: string, deps: ModuleDependency<acorn.Node>[]) {
@@ -520,9 +542,12 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
             }),
             requires = this.requires.map(req => {
                 var dep = deps.find(d => d.source === req);
-                return dep ? [this.processRequire(req, dep.target)] : [];
+                return dep ? this.processRequire(req, dep.target) : [];
             }),
-            exports = this.exports.map(exp => [this.processExport(exp)]),
+            exports = this.exports.map(exp => {
+                var dep = deps.find(d => d.source === exp);  // for `export .. from`
+                return this.processExport(exp, dep && dep.target);
+            }),
 
             prog = TextSource.interpolate(this.text, 
                 [].concat(...imports, ...requires, ...exports)
@@ -543,39 +568,55 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 isDefault = true;
         }
         else {
-            var locals = [];
             lhs = this._freshVar();
             for (let impspec of imp.specifiers) {
                 assert(impspec.type === 'ImportSpecifier');
                 let local = impspec.local.name, imported = impspec.imported.name;
-                locals.push((local == imported) ? local : `${imported}:${local}`);
-                for (let refnode of this.vars.globals.get(local) || []) {
-                    refs.push([refnode, `${lhs}.${imported}`]);
-                }
+                refs.push(...this.updateReferences(local, `${lhs}.${imported}`));
             }
         }
-        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`]].concat(refs);
+        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`]]
+               .concat(refs);
     }
 
     processRequire(req: RequireInvocation, ref: ModuleRef) {
-        return [req, this.makeRequire(ref)];
+        return [[req, this.makeRequire(ref)]];
     }
 
-    processExport(exp: AcornTypes.ExportDeclaration) {
-        var locals = [], rhs: string, is = AcornUtils.is;
+    processExport(exp: AcornTypes.ExportDeclaration, ref: ModuleRef) {
+        var locals = [], rhs: string, is = AcornUtils.is, d = exp.declaration;
+
         if (is(exp, 'ExportNamedDeclaration')) {
-            for (let expspec of exp.specifiers) {
-                assert(expspec.type === 'ExportSpecifier');
-                let local = expspec.local.name, exported = expspec.exported.name;
-                locals.push((local == exported) ? local : `${local}:${exported}`);
+            if (d) {  // <- `export const` etc.
+                locals = (<any>d).declarations.map(u => u.id.name);  /** @todo typing & test other cases */
             }
-            rhs = `{${locals}}`;
+            else {
+                for (let expspec of exp.specifiers) {
+                    assert(expspec.type === 'ExportSpecifier');
+                    let local = expspec.local.name, exported = expspec.exported.name;
+                    locals.push((local == exported) ? local : `${local}:${exported}`);
+                }
+            }
+
+            rhs = (exp.source && ref)   // <- `export .. from`
+                    ? `${this.makeRequire(ref)}, ${JSON.stringify(locals)}`
+                    : `{${locals}}`;
+
+            if (d)
+                return [[{start: exp.start, end: d.start}, ''],  // <- remove `export` modifier
+                    [{start: exp.end, end:exp.end}, `\nkremlin.export(module, ${rhs});`]];
+            else
+                return [[exp, `kremlin.export(module, ${rhs});`]];
         }
         else if (is(exp, 'ExportDefaultDeclaration')) {
-            rhs = `{default:${this.text.substring(exp.declaration.start, exp.declaration.end)}}`;
+            assert(d);
+            // Careful incision
+            return [[{start: exp.start,
+                      end:   d.start},   'kremlin.export(module, {default:'],
+                    [{start: d.end,
+                      end:   exp.end},   '});']];
         }
         else throw new Error(`invalid export '${exp.type}'`);
-        return [exp, `kremlin.export(module, ${rhs});`];
     }
 
     makeRequire(ref: ModuleRef, isDefault: boolean = false) {
@@ -586,6 +627,16 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
             var key = ref.normalize().canonicalName;
             return `kremlin.require('${key}', ${isDefault})`;
         }
+    }
+
+    updateReferences(name: string, expr: string) {
+        var refs = [];
+        for (let refnode of this.vars.globals.get(name) || []) {
+            var colon = this._isShorthandProperty(refnode);
+            refs.push([refnode, 
+                 `${colon ? name+':' : ''}${expr}`]);
+        }
+        return refs;
     }
 
     _freshVar(base = "") {
@@ -655,6 +706,7 @@ declare namespace AcornTypes {
 
     class ExportDeclaration extends acorn.Node {
         type: "ExportNamedDeclaration" | "ExportDefaultDeclaration"
+        declaration?: acorn.Node
     }
 
     class ExportNamedDeclaration extends ExportDeclaration {
@@ -665,7 +717,7 @@ declare namespace AcornTypes {
 
     class ExportDefaultDeclaration extends ExportDeclaration {
         type: "ExportDefaultDeclaration"
-        declaration: acorn.Node
+        declaration: acorn.Node   // not optional
     }
 
     class ExportSpecifier extends acorn.Node {
@@ -681,6 +733,11 @@ declare namespace AcornTypes {
 
     class Identifier extends acorn.Node {
         name: string
+        parents: acorn.Node[]  // actually this exists in for all acorn.Nodes :/
+    }
+
+    class Property extends acorn.Node {
+        shorthand: boolean
     }
 
 }
@@ -688,10 +745,11 @@ declare namespace AcornTypes {
 namespace AcornUtils {
     export function is(node: acorn.Node, type: "Program"): node is AcornTypes.Program
     export function is(node: acorn.Node, type: "ImportSpecifier"): node is AcornTypes.ImportSpecifier
-    export function is(node: acorn.Node, type: "CallExpression"): node is AcornTypes.CallExpression
-    export function is(node: acorn.Node, type: "Identifier"): node is AcornTypes.Identifier
     export function is(node: acorn.Node, type: "ExportNamedDeclaration"): node is AcornTypes.ExportNamedDeclaration
     export function is(node: acorn.Node, type: "ExportDefaultDeclaration"): node is AcornTypes.ExportDefaultDeclaration
+    export function is(node: acorn.Node, type: "CallExpression"): node is AcornTypes.CallExpression
+    export function is(node: acorn.Node, type: "Identifier"): node is AcornTypes.Identifier
+    export function is(node: acorn.Node, type: "Property"): node is AcornTypes.Property
     export function is(node: acorn.Node, type: string): boolean
 
     export function is(node: acorn.Node, type: string) { return node.type === type; }

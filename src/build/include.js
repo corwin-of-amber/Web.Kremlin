@@ -21,8 +21,12 @@ kremlin = {m: {}, loaded: {},
             Object.assign(c, this.require(k));  // what if c is not an object?
         return c;
     },
-    export(m, d) {
-        m.exports = Object.assign(m.exports || {}, d);
+    export(m, d, names) {
+        m.exports = m.exports || {};
+        if (names)
+            for (let nm of names) m.exports[nm] = d[nm]
+        else
+            m.exports = Object.assign(m.exports, d);
     },
     node_require(nm) {
         var m = require(nm);
