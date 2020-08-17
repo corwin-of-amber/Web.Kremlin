@@ -1,5 +1,6 @@
 **/*.pyc
 *.ls.js
+.*.swp
 .DS_Store
 node_modules
 app.db
@@ -8,3 +9,4 @@ app.db
 /dist
 /.cache
 /build
+/tests/**/build

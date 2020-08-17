@@ -22,7 +22,7 @@ class Kremlin {
     }
 
     prepare(proj: ProjectDefinition = this.proj || {}) {
-        var b = new Builder(proj);
+        var b = new Builder(proj, this.builder && this.builder.env);
         this.proj = b.proj;
         b.env.report = new ReportToConsole(this.console);
         this.builder = b;
@@ -111,7 +111,8 @@ class Kremlin {
     _ignoreFuncs: ((filename: string) => boolean)[] = [
         (filename) => filename.split(path.sep).some(
             (x) => x[0] == '.' || x == 'node_modules' || x == 'bower_components'),
-        (filename) => !!/^\d+$/.exec(filename)
+        (filename) => !!/^\d+$/.exec(filename),
+        (filename) => this.proj && filename.startsWith(this.proj.buildDir)
     ];
 }
 

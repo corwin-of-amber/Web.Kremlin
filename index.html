@@ -3,7 +3,10 @@
 <head>
     <meta charset="utf-8">
     <script src="kremlin://src/build/testbed.ts"></script>
-    <script>var k = require('./plug').default.watch({window, main: 'index.html'});</script>
+    <script>
+    var k = require('./plug').default.watch({window,
+        main: ['index.html', 'src/plug.ts', 'src/cli.ts']});
+    </script>
 </head>
 <body>
   

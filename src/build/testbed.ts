@@ -20,15 +20,19 @@ function testbed() {
     var projects: {[name: string]: ProjectDefinition} = {
         kremlin: {
             wd: '.',
-            main: ['index.kremlin.html', 'src/plug.ts', 'src/cli.ts']
+            main: ['index.html', 'src/plug.ts', 'src/cli.ts']
         },
         author: {
             wd: '/Users/corwin/var/workspace/Web.Author',
             main: 'src/hub.ls'
+        },
+        'tests/import-export': {
+            wd: 'tests/import-export',
+            main: 'index.js'
         }
     };
 
-    var proj = ProjectDefinition.normalize(projects['kremlin']);
+    var proj = ProjectDefinition.normalize(projects['tests/import-export']);
 
     var targets = [].concat(...proj.main.map(t => t.input));
 
