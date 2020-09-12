@@ -36,6 +36,7 @@ class PackageDir extends ModuleRef {
                 JSON.parse(this.manifestFile.readSync()) : {};
         }
         catch (e) {
+            /** @todo send this to report (which env though?) */
             console.error(`failed to read manifest in ${this.dir}`, e);
             return {}; 
         }

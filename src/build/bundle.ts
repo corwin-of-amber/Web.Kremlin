@@ -123,9 +123,31 @@ class BrowserShims extends Library {
               altnames = {zlib: 'browserify-zlib', crypto: 'crypto-browserify',
                           stream: 'stream-browserify'};
         this.modules.push(...['path', 'events', 'assert', 'util', 'zlib', 'stream',
-                              'url', 'querystring', 'buffer', 'process']
+                              'url', 'querystring', 'crypto', 'buffer', 'process']
             .map(m => new ShimModule(m, 
                 new PackageDir(path.join(shimdir, 'node_modules', altnames[m] || m)))));
+    }
+}
+
+class UserDefinedOverrides extends Library {
+    constructor(pd: PackageDir) {
+        super();
+        if (pd.manifestFile) {
+            var m = pd.manifest;
+            if (typeof m.browser === 'object' && m.browser['mass-confusion']) {
+                this.globalSubstitutes(pd, m.browser);
+            }
+        }
+    }
+
+    globalSubstitutes(pd: PackageDir, d: {[name: string]: string | boolean | {}}) {
+        for (let [name, sub] of Object.entries(d)) {
+            if (!name.startsWith('.')) {
+                this.modules.push(typeof sub === 'string'
+                    ? new ShimModule(name, new PackageDir(path.join(pd.dir, sub)))
+                    : new StubModule(name, null));
+            }
+        }
     }
 }
 
@@ -218,7 +240,8 @@ class AcornCrawl extends InEnvironment {
 
         var lookup = (src: string) => {
             try {
-                return this.modules.intrinsic.get(src) || sp.lookup(src);
+                return (!sp.aliases[src] && this.modules.intrinsic.get(src))
+                       || sp.lookup(src);
             }
             catch (e) { return new StubModule(src, e); }
         };
@@ -570,8 +593,8 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         else {
             lhs = this._freshVar();
             for (let impspec of imp.specifiers) {
-                assert(impspec.type === 'ImportSpecifier');
-                let local = impspec.local.name, imported = impspec.imported.name;
+                let local = impspec.local.name, 
+                    imported = impspec.imported?.name || 'default';
                 refs.push(...this.updateReferences(local, `${lhs}.${imported}`));
             }
         }
@@ -757,6 +780,7 @@ namespace AcornUtils {
 
 
 
-export { Environment, InEnvironment, Library, NodeJSRuntime, BrowserShims,
+export { Environment, InEnvironment,
+         Library, NodeJSRuntime, BrowserShims, UserDefinedOverrides,
          AcornCrawl, SearchPath, VisitOptions, VisitResult,
          CompilationUnit, PassThroughModule, HtmlModule, ConcatenatedJSModule }

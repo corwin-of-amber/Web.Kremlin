@@ -1,18 +1,17 @@
-kremlin = {m: {}, loaded: {},
+kremlin = {m: {}, loaded: {}, debug: false,
     require(k, isDefault) {
-        var l = this.loaded[k];
-        if (l) return l.exports || {};
-        else {
-            console.log('%cimport', 'color: green', k);
-            var mod = {exports: {}};
+        var mod = this.loaded[k];
+        if (!mod) {
+            if (this.debug) console.log('%cimport', 'color: green', k);
+            mod = {exports: {}};
             this.loaded[k] = mod;
             var fun = this.m[k];
             if (fun) fun(mod, mod.exports);
             else throw new Error('module not found: ' + k);
-            var res = mod.exports || {};
-            if (isDefault && res.default) res = res.default;
-            return res;
         }
+        res = mod.exports || {};
+        if (isDefault && res.default) res = res.default;
+        return res;
     },
     requires(ks) {
         if (ks.length === 0) return {};

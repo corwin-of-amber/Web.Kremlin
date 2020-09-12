@@ -1,5 +1,5 @@
-import { SourceFile } from './modules';
-import { Environment, AcornCrawl, NodeJSRuntime, BrowserShims,
+import { SourceFile, PackageDir } from './modules';
+import { Environment, AcornCrawl, NodeJSRuntime, BrowserShims, UserDefinedOverrides,
          SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
@@ -33,7 +33,7 @@ class Builder {
     }
 
     crawl() {
-        var ac = new AcornCrawl().in(this.env);
+        var ac = new AcornCrawl().in(this.configure());
         return ac.collect(this.entryp);
     }
 
@@ -55,6 +55,12 @@ class Builder {
 
     isOk() {
         return this.env.report.status === Report.Status.OK;
+    }
+
+    configure() {
+        var pd = new PackageDir(this.proj.wd), env = this.env,
+            userModules = new UserDefinedOverrides(pd);
+        return {...env, infra: env.infra.concat([userModules])};
     }
 
     static defaultEnvironment() {
