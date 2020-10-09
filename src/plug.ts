@@ -4,7 +4,7 @@ import path from 'path';
 import { FSWatcher } from 'fs';
 import _ from 'lodash';
 import { ProjectDefinition, ProjectDefinitionNorm } from './project';
-import { Builder } from './build';
+import { Builder, BuildOptions } from './build';
 import { ReportToConsole } from './build/ui/report';
 
 
@@ -15,6 +15,7 @@ class Kremlin {
     builder: Builder
     watcher: FSWatcher
 
+    opts: BuildOptions = {}
     persist: boolean = false  // whether to keep app running while watch is active
 
     get console() {
@@ -22,7 +23,7 @@ class Kremlin {
     }
 
     prepare(proj: ProjectDefinition = this.proj || {}) {
-        var b = new Builder(proj, this.builder && this.builder.env);
+        var b = new Builder(proj, this.builder && this.builder.env, this.opts);
         this.proj = b.proj;
         b.env.report = new ReportToConsole(this.console);
         this.builder = b;

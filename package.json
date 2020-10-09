@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@vue/component-compiler": "https://github.com/corwin-of-amber/vue-component-compiler/releases/download/v4.2.3-0/vue-component-compiler-4.2.3-0.tar.gz",
-    "acorn": "^7.3.1",
+    "acorn": "^8.0.1",
     "acorn-globals": "git+https://github.com/LongTengDao-fork-B/acorn-globals.git",
     "acorn-walk": "^7.2.0",
     "chokidar": "^3.4.1",

@@ -9,7 +9,7 @@ kremlin = {m: {}, loaded: {}, debug: false,
             if (fun) fun(mod, mod.exports);
             else throw new Error('module not found: ' + k);
         }
-        res = mod.exports || {};
+        res = mod.hasOwnProperty('exports') ? mod.exports : {};
         if (isDefault && res.default) res = res.default;
         return res;
     },
@@ -19,6 +19,9 @@ kremlin = {m: {}, loaded: {}, debug: false,
         for (let k of ks.slice(1))
             Object.assign(c, this.require(k));  // what if c is not an object?
         return c;
+    },
+    async import(k, isDefault) {
+        return this.require(k, isDefault);
     },
     export(m, d, names) {
         m.exports = m.exports || {};

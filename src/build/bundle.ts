@@ -345,6 +345,7 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     contentType = 'html'
 
     scripts: parse5.DefaultTreeElement[]
+    outDir?: string  /* location of intended output - for relative urls */
 
     constructor(text: string, dir?: string) {
         super();
@@ -362,8 +363,8 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     }
 
     /**
-     * Extracts script tags with `kremlin://` URIs.
-     * @todo auto-detect other tags referring to modules.
+     * Extracts script tags. Parses `kremlin://` URIs, if present;
+     * otherwise it assumes that the `src` attribute contains a relative path.
      */
     getRefTags() {
         if (!this.scripts) this.extractScripts();
@@ -371,7 +372,7 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
             var src = sc.attrs.find(a => a.name == 'src');
             if (src) {
                 var mo = /^kremlin:\/\/(.*)$/.exec(src.value);
-                if (mo) return {path: mo[1], tag: sc};
+                return {path: mo ? mo[1] : src.value, tag: sc};
             }
         }).filter(x => x);
     }
@@ -384,9 +385,9 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
             return dep && {tag: u, ref: dep.target};
         }).filter(x => x);
 
-        var tags = [].concat(...deps.map(d =>
-            d.compiled.map(t => this.makeIncludeTag(t, d.target))
-        )).join('\n');
+        var tags = [].concat(...[...this._uniqCUs(deps)].map(([d, c]) =>
+            this.makeIncludeTag(c, d.target))
+        ).join('\n');
 
         if (entries.length > 0) {
             return TextSource.interpolate(this.text, entries.map((e, i) => {
@@ -404,6 +405,15 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
         return {text: this.makeInitScript(ref), ...at};
     }
 
+    *_uniqCUs(deps: ModuleDependency[]): Generator<[ModuleDependency, ModuleRef]> {
+        // Remove duplicates (these can occur if some modules are bundled)
+        var seen = new Set<string>();
+        for (let d of deps)
+            for (let c of d.compiled)
+                if (!seen.has(c.canonicalName)) 
+                    { seen.add(c.canonicalName); yield [d, c]; }
+    }
+
     makeIncludeTag(m: ModuleRef, origin: ModuleRef) {
         if (m instanceof SourceFile) {
             switch (m.contentType) {
@@ -416,11 +426,11 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     }
 
     makeScriptTag(m: SourceFile) {
-        return `<script src="${m.filename}"></script>`;
+        return `<script src="${this._urlOf(m)}"></script>`;
     }
 
     makeStylesheetLinkTag(m: SourceFile) {
-        return `<link href="${m.filename}" rel="stylesheet" type="text/${
+        return `<link href="${this._urlOf(m)}" rel="stylesheet" type="text/${
                 m.contentType || 'css'}">`;
     }
 
@@ -431,6 +441,14 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     makeInitScript(ref: ModuleRef) {
         var key = ref.normalize().canonicalName;
         return `\n<script>kremlin.require('${key}');</script>`;
+    }
+
+    _urlOf(m: SourceFile) {
+        return this._rel(m.filename);
+    }
+
+    _rel(filename: string) {
+        return this.outDir ? path.relative(this.outDir, filename) : filename;
     }
 
     static fromSourceFile(m: SourceFile) {
@@ -474,7 +492,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     contentType = 'js'
 
-    imports: AcornTypes.ImportDeclaration[]
+    imports: (AcornTypes.ImportDeclaration | AcornTypes.ImportExpression)[]
     requires: RequireInvocation[]
     exports: AcornTypes.ExportDeclaration[]
 
@@ -531,8 +549,10 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 AcornTypes.ExportNamedDeclaration[];
     }
 
-    isImport(node: acorn.Node): node is AcornTypes.ImportDeclaration {
-        return AcornUtils.is(node, 'ImportDeclaration');
+    isImport(node: acorn.Node): node is AcornTypes.ImportDeclaration | 
+                                        AcornTypes.ImportExpression {
+        return AcornUtils.is(node, 'ImportDeclaration') ||
+               AcornUtils.is(node, 'ImportExpression');
     }
 
     isRequire(node: acorn.Node): node is RequireInvocation {
@@ -581,7 +601,12 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         return `kremlin.m['${key}'] = (module,exports) => {${prog}};`;
     }
 
-    processImport(imp: AcornTypes.ImportDeclaration, ref: ModuleRef) {
+    processImport(imp: AcornTypes.ImportDeclaration | AcornTypes.ImportExpression, ref: ModuleRef) {
+        return AcornUtils.is(imp, 'ImportDeclaration') ?
+            this.processImportStmt(imp, ref) : this.processImportExpr(imp, ref);
+    }
+
+    processImportStmt(imp: AcornTypes.ImportDeclaration, ref: ModuleRef) {
         var lhs: string, refs = [], isDefault = false;
         if (imp.specifiers.length == 1 && 
             (imp.specifiers[0].type === 'ImportDefaultSpecifier'
@@ -600,6 +625,11 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         }
         return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`]]
                .concat(refs);
+    }
+
+    processImportExpr(imp: AcornTypes.ImportExpression, ref: ModuleRef) {
+        var isDefault = true; /** @todo */
+        return [[imp, this.makeImportAsync(ref, isDefault)]];
     }
 
     processRequire(req: RequireInvocation, ref: ModuleRef) {
@@ -644,12 +674,18 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     makeRequire(ref: ModuleRef, isDefault: boolean = false) {
         if (ref instanceof NodeModule) {
-            return `require('${ref.name}')`;  // @todo configure by target
+            return `require('${ref.name}')`;  /** @todo configure by target  */
         }
         else {
             var key = ref.normalize().canonicalName;
             return `kremlin.require('${key}', ${isDefault})`;
         }
+    }
+
+    makeImportAsync(ref: ModuleRef, isDefault: boolean = false) {
+        assert(!(ref instanceof NodeModule));  /** @todo not supported */
+        var key = ref.normalize().canonicalName;
+        return `kremlin.import('${key}', ${isDefault})`;
     }
 
     updateReferences(name: string, expr: string) {
@@ -727,6 +763,11 @@ declare namespace AcornTypes {
         imported?: Identifier
     }
 
+    class ImportExpression extends acorn.Node {
+        type: "ImportExpression"
+        source: Literal
+    }
+
     class ExportDeclaration extends acorn.Node {
         type: "ExportNamedDeclaration" | "ExportDefaultDeclaration"
         declaration?: acorn.Node
@@ -767,7 +808,9 @@ declare namespace AcornTypes {
 
 namespace AcornUtils {
     export function is(node: acorn.Node, type: "Program"): node is AcornTypes.Program
+    export function is(node: acorn.Node, type: "ImportDeclaration"): node is AcornTypes.ImportDeclaration
     export function is(node: acorn.Node, type: "ImportSpecifier"): node is AcornTypes.ImportSpecifier
+    export function is(node: acorn.Node, type: "ImportExpression"): node is AcornTypes.ImportExpression
     export function is(node: acorn.Node, type: "ExportNamedDeclaration"): node is AcornTypes.ExportNamedDeclaration
     export function is(node: acorn.Node, type: "ExportDefaultDeclaration"): node is AcornTypes.ExportDefaultDeclaration
     export function is(node: acorn.Node, type: "CallExpression"): node is AcornTypes.CallExpression

@@ -101,6 +101,20 @@ class Deployment extends InEnvironment {
         return new SourceFile(outp, null, contentType);
     }
 
+    /**
+     * Concatenates all JS modules.
+     */
+    squelch(outputFilename = 'bundle.js') {
+        var cjs = new ConcatenatedJSModule().in(this.env),
+            deps = new ConcatenatedJSPostprocessor(this, cjs, []).getDeps(),
+            out = this.writeFileSync(outputFilename, cjs.process(outputFilename, deps), 'js');
+
+        for (let m of this.modules) {
+            if (m.targets.some(e => e.contentType === 'js'))
+                m.targets = [out]; /** @todo mixed types? */
+        }
+    }
+
     wrapUp(entries: {input: ModuleRef[], output: string}[]) {
         return [...this.wrapUpIter(entries)];
     }
@@ -120,7 +134,9 @@ class Deployment extends InEnvironment {
         var html = HtmlModule.fromSourceFile(entry).in(this.env),
             deps = new HtmlPostprocessor(this, html).getDeps();
 
-        return this.writeFileSync(outputFilename, html.process(outputFilename, deps));
+        html.outDir = this.outDir;
+
+        return this.writeFileSync(outputFilename, html.process('', deps));
     }
 
     makeEntryJS(entry: ModuleRef[], outputFilename: string) {
@@ -167,20 +183,16 @@ class Postprocessor<CU extends CompilationUnit, R> {
     getDeps(): ModuleDependency[] {
         var pre = this.deploy.include ? [{
                 source: undefined, target: undefined, 
-                compiled: this._targets(this.deploy.include)
+                compiled: this.deploy.include
             }] : [],
             load = this.deploy.modules.map(m => ({
                 source: this.referenceOf(m.dmod.ref), target: m.dmod.ref,
-                compiled: this._targets(m.targets)
+                compiled: m.targets
             }));
         return pre.concat(load);
     }    
 
     referenceOf(ref: ModuleRef): R { return undefined; }
-
-    _targets(targets: SourceFile[]) {
-        return targets.map(t => this.deploy._relative(t));
-    }
 }
 
 
@@ -219,8 +231,6 @@ class ConcatenatedJSPostprocessor extends Postprocessor<ConcatenatedJSModule, {}
         const mid = m.id;
         return this.entryPoints.some(x => x.id === mid) ? {} : undefined;
     }
-
-    _targets(targets: SourceFile[]) { return targets; }
 }
 
 

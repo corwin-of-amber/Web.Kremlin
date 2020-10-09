@@ -17,10 +17,14 @@ class Builder {
     proj: ProjectDefinitionNorm
     entryp: SourceFile[]
 
-    constructor(proj: ProjectDefinition = {}, env = Builder.defaultEnvironment()) {
+    opts: BuildOptions
+
+    constructor(proj: ProjectDefinition = {}, env = Builder.defaultEnvironment(),
+                options: BuildOptions = {}) {
         this.env = env;
         this.proj = ProjectDefinition.normalize(proj);
         this.entryp = [].concat(...this.proj.main.map(t => t.input));
+        this.opts = {...Builder.DEFAULT_OPTIONS, ...options};
     }
 
     get console() {
@@ -50,6 +54,8 @@ class Builder {
             if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
         }
 
+        if (this.opts.mode === 'prod') deploy.squelch();
+
         deploy.wrapUp(this.proj.main);
     }
 
@@ -72,8 +78,12 @@ class Builder {
                          new DummyCompiler(new SearchPath(['build'], []))];
         return env;
     }
+
+    static DEFAULT_OPTIONS: BuildOptions = {mode: "dev"};
 }
 
+type BuildOptions = { mode?: "prod" | "dev" };
 
 
-export { Builder }
+
+export { Builder, BuildOptions }
