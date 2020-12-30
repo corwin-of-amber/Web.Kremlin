@@ -4,10 +4,11 @@
 
 import fs from 'fs';
 import path from 'path';
-import requireg from 'requireg';
 
+import which from 'which';
 import mkdirp from 'mkdirp';
-import { linkrel, cp_r, touch } from './shutil';
+
+import { linkrel, cp_r, touch, ifExists } from './shutil';
 
 import { PackageDir } from '../build/modules';
 
@@ -18,10 +19,23 @@ class NWjsOrigin {
     appDir: string
 
     constructor() {
-        this.rootDir = path.dirname(fs.realpathSync(requireg.resolve('nw')));
+        this.rootDir = fs.realpathSync(resolveg('nw'));
         this.appDir = path.join(this.rootDir, 'nwjs/nwjs.app');
+        if (!ifExists(this.appDir))
+            throw new Error(`missing NWjs app dir '${this.appDir}'`);
     }
 }
+
+function resolveg(module: string) {
+    var nodeExec = which.sync('node') || process.execPath,
+        modulesPath: string, mod: string;
+    if (!(modulesPath = ifExists(path.join(nodeExec, '../../lib/node_modules'))))
+        throw new Error("could not find global 'node_modules' path");
+    if (!(mod = ifExists(path.join(modulesPath, module))))
+        throw new Error("could not find global module 'nw'");
+    return mod;
+}
+
 
 class AppDir {
     name: string
@@ -91,14 +105,25 @@ const structure = {
 
 function main() {
     var nw = new NWjsOrigin(),
-        app = new AppDir(path.basename(process.cwd()));
+        pkg = new PackageDir('.'),
+        app = new AppDir(path.basename(process.cwd()), pkg.dir);
     var banner = ["-".repeat(60),
-    `Creating:  ${app.appDir}`,
-    `NWjs:      ${nw.appDir}`, "-".repeat(60)];
+                  `Creating:  ${app.appDir}`,
+                  `NWjs:      ${nw.appDir}`,   "-".repeat(60)];
 
     console.log(banner.join('\n'));
 
-    app.process([], structure, {'nw': nw.appDir, 'pkg': app.rootDir});
+    console.log(pkg.canonicalName);
+
+    var m = pkg.manifest,
+        icon = m?.app?.icon;
+
+    if (icon) {
+        console.log(`Icon = ${icon}`);
+        structure.Contents.Resources['app.icns'] = new CopyOver('pkg', icon);
+    }
+
+    app.process([], structure, {'nw': nw.appDir, 'pkg': pkg.dir});
 }
 
 

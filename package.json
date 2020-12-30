@@ -30,13 +30,13 @@
     "nearley": "^2.19.5",
     "parse5": "^6.0.0",
     "prelude-ls": "^1.2.1",
-    "requireg": "^0.2.2",
     "typescript": "^4.1.3",
     "underscore": "^1.10.2",
     "vue": "^2.6.11",
     "vue-hot-reload-api": "^2.3.4",
     "vue-template-compiler": "^2.6.11",
-    "walk-parse5": "^2.0.0"
+    "walk-parse5": "^2.0.0",
+    "which": "^2.0.2"
   },
   "scripts": {
     "bootstrap": "npx tsc --project . --module commonjs --outDir build/boot && node build/boot/cli src/cli.ts src/plug.ts",
@@ -54,5 +54,8 @@
   },
   "browserslist": [
     "Chrome 80"
-  ]
+  ],
+  "app": {
+    "icon": "Icon.icns"
+  }
 }
