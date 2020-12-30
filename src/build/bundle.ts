@@ -552,7 +552,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     get exportsFrom() {
         return this.exports.filter(u => this.isExportFrom(u)) as
-                AcornTypes.ExportNamedDeclaration[];
+                (acorn.Node & {source?: AcornTypes.Literal})[];
     }
 
     isImport(node: acorn.Node): node is AcornTypes.ImportDeclaration | 
@@ -570,11 +570,13 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     isExport(node: acorn.Node): node is AcornTypes.ExportDeclaration {
         return AcornUtils.is(node, 'ExportNamedDeclaration') ||
-               AcornUtils.is(node, 'ExportDefaultDeclaration');
+               AcornUtils.is(node, 'ExportDefaultDeclaration') ||
+               AcornUtils.is(node, 'ExportAllDeclaration');
     }
 
     isExportFrom(node: acorn.Node): node is AcornTypes.ExportNamedDeclaration {
-        return AcornUtils.is(node, 'ExportNamedDeclaration') && !!node.source;
+        return (AcornUtils.is(node, 'ExportNamedDeclaration') ||
+                AcornUtils.is(node, 'ExportAllDeclaration')) && !!node.source;
     }
 
     _isShorthandProperty(node: AcornTypes.Identifier) {
@@ -647,13 +649,18 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
         if (is(exp, 'ExportNamedDeclaration')) {
             if (d) {  // <- `export const` etc.
-                locals = (<any>d).declarations.map(u => u.id.name);  /** @todo typing & test other cases */
+                if (AcornUtils.is(d, 'FunctionDeclaration'))
+                    locals = [d.id.name];
+                else if (AcornUtils.is(d, 'VariableDeclaration'))
+                    locals = d.declarations.map(u => u.id.name);
+                else
+                    locals = [];  /** @todo */
             }
             else {
                 for (let expspec of exp.specifiers) {
                     assert(expspec.type === 'ExportSpecifier');
                     let local = expspec.local.name, exported = expspec.exported.name;
-                    locals.push((local == exported) ? local : `${local}:${exported}`);
+                    locals.push((local == exported) ? local : `${exported}:${local}`);
                 }
             }
 
@@ -666,6 +673,11 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                     [{start: exp.end, end:exp.end}, `\nkremlin.export(module, ${rhs});`]];
             else
                 return [[exp, `kremlin.export(module, ${rhs});`]];
+        }
+        else if (is(exp, 'ExportAllDeclaration')) {  // <- `export * from`
+            assert(!!exp.source);
+            rhs = this.makeRequire(ref);
+            return [[exp, `kremlin.export(module, ${rhs});`]];
         }
         else if (is(exp, 'ExportDefaultDeclaration')) {
             assert(d);
@@ -757,10 +769,6 @@ declare namespace AcornTypes {
         body: acorn.Node[]
     }
 
-    class Literal extends acorn.Node {
-        value: string
-    }
-
     class ImportDeclaration extends acorn.Node {
         type: "ImportDeclaration"
         source: Literal
@@ -779,7 +787,7 @@ declare namespace AcornTypes {
     }
 
     class ExportDeclaration extends acorn.Node {
-        type: "ExportNamedDeclaration" | "ExportDefaultDeclaration"
+        type: "ExportNamedDeclaration" | "ExportDefaultDeclaration" | "ExportAllDeclaration"
         declaration?: acorn.Node
     }
 
@@ -787,6 +795,11 @@ declare namespace AcornTypes {
         type: "ExportNamedDeclaration"
         source?: Literal
         specifiers: ExportSpecifier[]
+    }
+
+    class ExportAllDeclaration extends ExportDeclaration {
+        type: "ExportAllDeclaration"
+        source?: Literal
     }
 
     class ExportDefaultDeclaration extends ExportDeclaration {
@@ -799,10 +812,36 @@ declare namespace AcornTypes {
         exported: Identifier
     }
 
+    class VariableDeclaration extends acorn.Node {
+        type: "VariableDeclaration"
+        kind: "var" | "const" | "let"
+        declarations: VariableDeclarator[]
+    }
+
+    class VariableDeclarator extends acorn.Node {
+        type: "VariableDeclarator"
+        id: Identifier
+        init?: acorn.Node
+    }
+
+    class FunctionDeclaration extends acorn.Node {
+        type: "FunctionDeclaration"
+        id: Identifier
+        params: acorn.Node[]
+        async: boolean
+        expression: boolean
+        generator: boolean
+        body: acorn.Node
+    }
+
     class CallExpression extends acorn.Node {
         type: "CallExpression"
         callee: acorn.Node
         arguments: acorn.Node[]
+    }
+
+    class Literal extends acorn.Node {
+        value: string
     }
 
     class Identifier extends acorn.Node {
@@ -822,8 +861,12 @@ namespace AcornUtils {
     export function is(node: acorn.Node, type: "ImportSpecifier"): node is AcornTypes.ImportSpecifier
     export function is(node: acorn.Node, type: "ImportExpression"): node is AcornTypes.ImportExpression
     export function is(node: acorn.Node, type: "ExportNamedDeclaration"): node is AcornTypes.ExportNamedDeclaration
+    export function is(node: acorn.Node, type: "ExportAllDeclaration"): node is AcornTypes.ExportAllDeclaration
     export function is(node: acorn.Node, type: "ExportDefaultDeclaration"): node is AcornTypes.ExportDefaultDeclaration
     export function is(node: acorn.Node, type: "CallExpression"): node is AcornTypes.CallExpression
+    export function is(node: acorn.Node, type: "VariableDeclaration"): node is AcornTypes.VariableDeclaration
+    export function is(node: acorn.Node, type: "VariableDeclarator"): node is AcornTypes.VariableDeclarator
+    export function is(node: acorn.Node, type: "FunctionDeclaration"): node is AcornTypes.FunctionDeclaration
     export function is(node: acorn.Node, type: "Identifier"): node is AcornTypes.Identifier
     export function is(node: acorn.Node, type: "Property"): node is AcornTypes.Property
     export function is(node: acorn.Node, type: string): boolean

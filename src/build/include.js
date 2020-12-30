@@ -48,3 +48,5 @@ var kremlin = {m: {}, loaded: {}, debug: false,
 };
 
 kremlin.node_startup([] /** @todo probably deps are not needed anymore? */);
+
+var __filename = '';
