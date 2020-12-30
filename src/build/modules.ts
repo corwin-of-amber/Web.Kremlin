@@ -2,11 +2,13 @@ const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
       path = (0||require)('path') as typeof import('path'),
       findUp = (0||require)('find-up');
 
+import { Environment, InEnvironment } from './environment';
 
 
-abstract class ModuleRef {
+
+abstract class ModuleRef extends InEnvironment {
     get id() {
-        return JSON.stringify([this.constructor.name, this]);
+        return JSON.stringify([this.constructor.name, Object.assign({}, this)]);
     }
     abstract get canonicalName(): string
     normalize(): ModuleRef { return this; }
@@ -51,14 +53,7 @@ class PackageDir extends ModuleRef {
         if (fs.existsSync(fn)) return new SourceFile(fn, this);
     }
     getMain(): SourceFile {
-        for (let candidate of [this.manifest.browser, this.manifest.main, 'index']
-                              .filter(x => typeof x === 'string')) {
-            for (let ext of ['', '.js', '.ts']) {  // oops: hard-coded extensions here
-                var sf = this.getIfExists(candidate + ext);
-                if (sf) return sf;
-            }
-        }
-        throw new MainFileNotFound(this);
+        return this.env.policy.packageEntryPoint(this);
     }
     normalize(): SourceFile | PackageDir {
         try { return this.getMain(); } catch { return this; }
@@ -119,6 +114,8 @@ class ShimModule extends ModuleRef {
     get id() { return JSON.stringify([this.constructor.name, this.name]); };
     get canonicalName() { return `shim://${this.name}`; }
     normalize() { return this.subst.normalize(); }
+
+    in(env: Environment) { this.subst = this.subst.in(env); return super.in(env); }
 }
 
 class StubModule extends ModuleRef {
@@ -160,4 +157,4 @@ class MainFileNotFound extends ModuleResolutionError {
 
 export { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule,
          ShimModule, StubModule, ModuleDependency,
-         ModuleResolutionError, FileNotFound }
+         ModuleResolutionError, FileNotFound, MainFileNotFound }

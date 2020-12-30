@@ -1,4 +1,4 @@
-kremlin = {m: {}, loaded: {}, debug: false,
+var kremlin = {m: {}, loaded: {}, debug: false,
     require(k, isDefault) {
         var mod = this.loaded[k];
         if (!mod) {
@@ -9,7 +9,7 @@ kremlin = {m: {}, loaded: {}, debug: false,
             if (fun) fun(mod, mod.exports);
             else throw new Error('module not found: ' + k);
         }
-        res = mod.hasOwnProperty('exports') ? mod.exports : {};
+        var res = mod.hasOwnProperty('exports') ? mod.exports : {};
         if (isDefault && res.default) res = res.default;
         return res;
     },
@@ -32,16 +32,19 @@ kremlin = {m: {}, loaded: {}, debug: false,
     },
     node_require(nm) {
         var m = require(nm);
-        kremlin.loaded[`node://${nm}`] = {exports: m};
+        this.loaded[`node://${nm}`] = {exports: m};
         return m;
     },
     node_startup(deps) {
-        if (typeof process === 'undefined') process = {env: {}, browser: true};
-        if (typeof global === 'undefined') global = window;
+        var glob;
+        if (typeof global === 'undefined') {
+            if (typeof window !== 'undefined') glob = window;
+        }
+        else glob = global;
+        if (typeof process === 'undefined') glob.process = {env: {}, browser: true};
         if (typeof require !== 'undefined')
             for (let m of deps) this.node_require(m);
     }
 };
 
-// @todo based on actual deps
-kremlin.node_startup(['path', 'fs', 'zlib', 'console', 'assert', 'events', 'stream', 'util']);
+kremlin.node_startup([] /** @todo probably deps are not needed anymore? */);

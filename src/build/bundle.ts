@@ -3,15 +3,14 @@ const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
 import assert from 'assert';
 
 import * as acorn from 'acorn';
+import * as acornLoose from 'acorn-loose';
 import * as acornWalk from 'acorn-walk';
 import * as parse5 from 'parse5';
 import parse5Walk from 'walk-parse5'
 import acornGlobals from 'acorn-globals';
+import { Environment, InEnvironment, Library } from './environment';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, ShimModule,
          StubModule, ModuleDependency, FileNotFound } from './modules';
-import { Transpiler } from './transpile';
-import { BuildCache } from './cache';
-import { Report, ReportSilent } from './ui/report';
 
 
 
@@ -86,49 +85,6 @@ class SearchPath {
 }
 
 
-class Environment {
-    infra: Library[] = []
-    compilers: Transpiler[] = []
-    cache: BuildCache = new BuildCache
-    report: Report = new ReportSilent
-}
-
-class InEnvironment {
-    env: Environment
-    in(env: Environment) { this.env = env; return this; }
-}
-
-
-class Library {
-    modules: (ModuleRef & {name: string})[] = []
-}
-
-class NodeJSRuntime extends Library {
-    constructor() {
-        super();
-        this.modules = ['fs', 'path', 'events', 'assert', 'zlib', 'stream', 'util',
-                        'crypto', 'net', 'tty', 'os', 'constants', 'vm',
-                        'http', 'https', 'url', 'querystring', 'tls',
-                        'buffer', 'process', 'child_process']
-            .map(m => new NodeModule(m));
-    }
-}
-
-class BrowserShims extends Library {
-    constructor() {
-        super();
-        const findUp = (0||require)('find-up'),
-              cwd = typeof __dirname !== 'undefined' ? __dirname : '.',
-              shimdir = findUp.sync('shim', {cwd, type: 'directory'}),
-              altnames = {zlib: 'browserify-zlib', crypto: 'crypto-browserify',
-                          stream: 'stream-browserify'};
-        this.modules.push(...['path', 'events', 'assert', 'util', 'zlib', 'stream',
-                              'url', 'querystring', 'crypto', 'buffer', 'process']
-            .map(m => new ShimModule(m, 
-                new PackageDir(path.join(shimdir, 'node_modules', altnames[m] || m)))));
-    }
-}
-
 class UserDefinedOverrides extends Library {
     constructor(pd: PackageDir) {
         super();
@@ -193,6 +149,16 @@ class AcornCrawl extends InEnvironment {
         return this.env.cache.memo(m, 'visit', op);
     }
 
+    safely(ref: ModuleRef, name: string, f: () => VisitResult): VisitResult {
+        try {
+            return f();
+        }
+        catch (e) {
+            this.env.report.error(ref, e);
+            return this.visitLeaf(new StubModule(name, e)); 
+        }
+    }
+
     visitFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         var fn = ref.filename;
         if      (fn.endsWith('.js'))   return this.visitJSFile(ref, opts);
@@ -203,13 +169,7 @@ class AcornCrawl extends InEnvironment {
             opts = {basedir: path.dirname(fn), ...opts};
             for (let cmplr of this.env.compilers) {
                 if (cmplr.match(fn)) {
-                    try {
-                        var c = cmplr.compileFile(fn)
-                    }
-                    catch (e) {
-                        this.env.report.error(ref, e);
-                        return this.visitLeaf(new StubModule(fn, e)); 
-                    }
+                    var c = cmplr.compileFile(fn)
                     return this.visitModuleRef(c, opts);
                 }
             }
@@ -218,7 +178,7 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitJSFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
-        return this.visitJS(AcornJSModule.fromSourceFile(ref), opts);
+        return this.visitJS(AcornJSModule.fromSourceFile(ref).in(this.env), opts);
     }
 
     visitCSSFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
@@ -227,7 +187,7 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitJSONFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
-        var pt = PassThroughModule.fromSourceFile(ref);  /** @todo */
+        var pt = JsonModule.fromSourceFile(ref);
         return {compiled: pt, deps: []};
     }
 
@@ -238,14 +198,17 @@ class AcornCrawl extends InEnvironment {
     visitJS(m: AcornJSModule, opts: VisitOptions = {}): VisitResult {
         var sp = SearchPath.from(opts.basedir || m.dir);
 
-        var lookup = (src: string) => {
+        if (m.isLoose) this.env.report.warn(null, "module parsed loosely due to syntax errors.");
+
+        var _lookup = (src: string) => {
             try {
                 return (!sp.aliases[src] && this.modules.intrinsic.get(src))
                        || sp.lookup(src);
             }
             catch (e) { return new StubModule(src, e); }
         };
-        var mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
+        var lookup = (src: string) => _lookup(src).in(this.env),
+             mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
 
         m.extractImports();
         var deps = m.imports.map(u => mkdep(u, lookup(u.source.value)))
@@ -257,11 +220,12 @@ class AcornCrawl extends InEnvironment {
     visitHtml(m: HtmlModule, opts: VisitOptions = {}): VisitResult {
         var dir = opts.basedir || m.dir, sp = new SearchPath([dir], [dir]);
 
-        var lookup = (src: string) => {
+        var _lookup = (src: string) => {
             try       { return sp.lookup(src); }
             catch (e) { return new StubModule(src, e); }
         };
-        var mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
+        var lookup = (src: string) => _lookup(src).in(this.env),
+            mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
 
         var deps = m.getRefTags().map(({path, tag}) => mkdep(tag, lookup(path)));
         return {compiled: m, deps};
@@ -278,7 +242,8 @@ class AcornCrawl extends InEnvironment {
 
     visitSourceFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         this.env.report.visit(ref);
-        return {...this.visitFile(ref, opts), origin: ref};
+        return {...this.safely(ref, ref.filename, () => this.visitFile(ref, opts)),
+                origin: ref};
     }
 
     visitPackageDir(ref: PackageDir, opts: VisitOptions = {}): VisitResult {
@@ -291,7 +256,8 @@ class AcornCrawl extends InEnvironment {
     visitTransientCode(ref: TransientCode, opts: VisitOptions = {}): VisitResult {
         switch (ref.contentType) {
         case 'js':
-            return this.visitJS(new AcornJSModule(ref.content).in(this.env), opts);
+            return this.safely(ref, '<transient>', () => this.visitJS(
+                new AcornJSModule(ref.content).in(this.env), opts));
         default:
             throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
         }
@@ -457,6 +423,26 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
 }
 
 
+class JsonModule extends InEnvironment implements CompilationUnit {
+    text: string
+    contentType = 'js'
+
+    constructor(text: string) {
+        super();
+        this.text = text;
+    }
+
+    process(key: string, deps: ModuleDependency[]) {
+        var prog = this.text;  /** @todo check syntax and/or normalize */
+        return `kremlin.m['${key}'] = (module,exports) => (module.exports =\n${prog});`;
+    }
+
+    static fromSourceFile(m: SourceFile) {
+        return new this(m.readSync());
+    }
+}
+
+
 class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     contentType = 'js'
 
@@ -489,6 +475,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     dir?: string
     text: string
     ast: acorn.Node
+    isLoose: boolean = false;
 
     contentType = 'js'
 
@@ -501,22 +488,35 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         used: Set<string>
     }
 
+    acornOptions = AcornJSModule.DEFAULT_ACORN_OPTIONS
+
     constructor(text: string, dir?: string) {
         super();
         this.text = text;
         this.dir = dir;
-        this.ast = acorn.parse(text, {sourceType: 'module'});
+        this.ast = this.parse(text);
+    }
+
+    parse(text: string) {
+        try { return acorn.parse(text, this.acornOptions); }
+        catch (e) {
+            this.isLoose = true;
+            return acornLoose.parse(text, this.acornOptions);
+        }
     }
 
     extractImports() {
         this.imports = [];
         this.requires = [];
         this.exports = [];
-        acornWalk.full(this.ast, (node) => {
-            if      (this.isImport(node))   this.imports.push(node);
-            else if (this.isRequire(node))  this.requires.push(node);
-            else if (this.isExport(node))   this.exports.push(node);
-        });
+        try {
+            acornWalk.full(this.ast, (node) => {
+                if      (this.isImport(node))   this.imports.push(node);
+                else if (this.isRequire(node))  this.requires.push(node);
+                else if (this.isExport(node))   this.exports.push(node);
+            });
+        }
+        catch (e) { this.env.report.warn(null, e); }
     }
 
     extractVars() {
@@ -531,16 +531,22 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         var prog = Object.assign({}, this.ast,   // strip imports so they don't count as locals
             {body: this.ast.body.filter(x => !this.isImport(x))});
         var globals = new Map;
-        for (let {name, nodes} of acornGlobals(prog))
-            globals.set(name, nodes);
+        try {
+            for (let {name, nodes} of acornGlobals(prog))
+                globals.set(name, nodes);
+        }
+        catch (e) { this.env.report.warn(null, e); }
         return globals;
     }
 
     _extractVarNames() {
         var s: Set<string> = new Set;
-        acornWalk.full(this.ast, u => {
-            if (AcornUtils.is(u, "Identifier")) s.add(u.name);
-        });
+        try {
+            acornWalk.full(this.ast, u => {
+                if (AcornUtils.is(u, "Identifier")) s.add(u.name);
+            });
+        }
+        catch (e) { this.env.report.warn(null, e); }
         return s;
     }
 
@@ -718,6 +724,10 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
             fs.readFileSync(filename, 'utf-8'),
             path.dirname(filename));
     }
+
+    /** @todo should probably be configurable somehow? */
+    static DEFAULT_ACORN_OPTIONS: acorn.Options =
+        {sourceType: 'module', ecmaVersion: 2020};
 }
 
 namespace TextSource {
@@ -823,7 +833,6 @@ namespace AcornUtils {
 
 
 
-export { Environment, InEnvironment,
-         Library, NodeJSRuntime, BrowserShims, UserDefinedOverrides,
+export { UserDefinedOverrides,
          AcornCrawl, SearchPath, VisitOptions, VisitResult,
          CompilationUnit, PassThroughModule, HtmlModule, ConcatenatedJSModule }

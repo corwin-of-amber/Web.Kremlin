@@ -1,5 +1,7 @@
 import { SourceFile, PackageDir } from './modules';
-import { Environment, AcornCrawl, NodeJSRuntime, BrowserShims, UserDefinedOverrides,
+import { Environment, NodeJSRuntime, BrowserShims,
+         NodeJSPolicy, BrowserPolicy} from './environment';
+import { AcornCrawl, UserDefinedOverrides,
          SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
@@ -25,6 +27,22 @@ class Builder {
         this.proj = ProjectDefinition.normalize(proj);
         this.entryp = [].concat(...this.proj.main.map(t => t.input));
         this.opts = {...Builder.DEFAULT_OPTIONS, ...options};
+        this._configure();
+    }
+
+    /**
+     * Configure environment using options.
+     */
+    _configure() {
+        switch (this.opts.target) {
+        case 'node':
+            this.env.policy = new NodeJSPolicy;
+            break;
+        case 'browser':
+            this.env.policy = new BrowserPolicy;
+            this.env.infra.push(new BrowserShims().in(this.env));
+            break;
+        }
     }
 
     get console() {
@@ -71,7 +89,7 @@ class Builder {
 
     static defaultEnvironment() {
         var env = new Environment;
-        env.infra = [new NodeJSRuntime(), new BrowserShims()];
+        env.infra = [new NodeJSRuntime().in(env)];
         env.compilers = [new TypeScriptCompiler(),
                          new VueCompiler(),
                          new LiveScriptCompiler(),
@@ -79,10 +97,10 @@ class Builder {
         return env;
     }
 
-    static DEFAULT_OPTIONS: BuildOptions = {mode: "dev"};
+    static DEFAULT_OPTIONS: BuildOptions = {mode: "dev", target: "browser"};
 }
 
-type BuildOptions = { mode?: "prod" | "dev" };
+type BuildOptions = { mode?: "prod" | "dev", target?: "node" | "browser" };
 
 
 

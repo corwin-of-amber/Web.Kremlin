@@ -4,7 +4,8 @@
         "moduleResolution": "node",
         "allowSyntheticDefaultImports": true,
         "esModuleInterop": true,
-        "downlevelIteration": true
+        "downlevelIteration": true,
+        "experimentalDecorators": true
     },
     "include": ["src"]
 }
