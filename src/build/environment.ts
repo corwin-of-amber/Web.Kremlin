@@ -1,12 +1,7 @@
 const path = (0||require)('path') as typeof import('path');
 
 import nonenumerable from '../infra/non-enumerable';
-import { Transpiler } from './transpile';
-import { BuildCache } from './cache';
-import { Report, ReportSilent } from './ui/report';
-import { ModuleRef, NodeModule, ShimModule,
-         PackageDir, SourceFile, MainFileNotFound } from './modules';
-
+import type { Transpiler } from './transpile';
 
 
 class Environment {
@@ -23,6 +18,14 @@ class InEnvironment {
     in(env: Environment) { this.env = env; return this; }
 }
 
+export { Environment, InEnvironment }
+
+/* needs to be after InEnvironment (cyclic deps :/) */
+import { ModuleRef, NodeModule, ShimModule,
+    PackageDir, SourceFile, MainFileNotFound } from './modules';
+import { BuildCache } from './cache';
+import { Report, ReportSilent } from './ui/report';
+    
 
 class Library extends InEnvironment {
     modules: (ModuleRef & {name: string})[] = [];
@@ -95,5 +98,5 @@ class BrowserPolicy extends PolicyBase {
 
 
 
-export { Environment, InEnvironment, Library, NodeJSRuntime, BrowserShims,
+export { Library, NodeJSRuntime, BrowserShims,
          NodeJSPolicy, BrowserPolicy }

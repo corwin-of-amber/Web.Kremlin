@@ -8,7 +8,8 @@ function ln_sf(target: string, path: string) {
         fs.lstatSync(path);
         fs.unlinkSync(path);
     }
-    catch { fs.symlinkSync(target, path); }
+    catch { }
+    fs.symlinkSync(target, path);
 }
 
 function cp_r(src: string, destDir: string) {

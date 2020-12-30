@@ -10,3 +10,4 @@ app.db
 /.cache
 /build
 /tests/**/build
+*.app
