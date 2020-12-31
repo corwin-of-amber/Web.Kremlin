@@ -6,7 +6,7 @@ var kremlin = {m: {}, loaded: {}, debug: false,
             mod = {exports: {}};
             this.loaded[k] = mod;
             var fun = this.m[k];
-            if (fun) fun(mod, mod.exports);
+            if (fun) fun(mod, mod.exports, this.global);
             else throw new Error('module not found: ' + k);
         }
         var res = mod.hasOwnProperty('exports') ? mod.exports : {};
@@ -36,12 +36,12 @@ var kremlin = {m: {}, loaded: {}, debug: false,
         return m;
     },
     node_startup(deps) {
-        var glob;
-        if (typeof global === 'undefined') {
-            if (typeof window !== 'undefined') glob = window;
-        }
-        else glob = global;
-        if (typeof process === 'undefined') glob.process = {env: {}, browser: true};
+        var glob = (typeof global !== 'undefined') ? global : null,
+            win  = (typeof window !== 'undefined') ? window : null;
+        this.global =  win || glob || {};
+        if (typeof process === 'undefined')
+            this.global.process = {env: {}, browser: true};
+        else if (win) process.browser = true;  /* for NWjs */
         if (typeof require !== 'undefined')
             for (let m of deps) this.node_require(m);
     }

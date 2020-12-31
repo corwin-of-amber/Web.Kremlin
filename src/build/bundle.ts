@@ -606,7 +606,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
         if (!prog.match(/\n\s+$/)) prog += '\n'; // in case prog ends with single-line comment
 
-        return `kremlin.m['${key}'] = (module,exports) => {${prog}};`;
+        return `kremlin.m['${key}'] = (module,exports,global) => {${prog}};`;
     }
 
     processImport(imp: AcornTypes.ImportDeclaration | AcornTypes.ImportExpression, ref: ModuleRef) {
