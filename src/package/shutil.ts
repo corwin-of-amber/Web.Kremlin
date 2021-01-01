@@ -12,9 +12,17 @@ function ln_sf(target: string, path: string) {
     fs.symlinkSync(target, path);
 }
 
-function cp_r(src: string, destDir: string) {
+function rm_rf(path: string) {
     // :(
-    child_process.execSync(`cp -r '${src}' '${destDir}'`);
+    child_process.execSync(`rm -rf '${path}'`);
+}
+
+function cp_r(src: string, dest: string) {
+    if (!src.endsWith('/') && isDirectory(src))
+        src += '/';
+    rm_rf(dest);
+    // :(
+    child_process.execSync(`cp -r '${src}' '${dest}'`);
 }
 
 function linkrel(target: string, linkPath: string) {
@@ -28,10 +36,14 @@ function ifExists(filename: string) {
     catch { return undefined; }
 }
 
+function isDirectory(path: string) {
+    return fs.statSync(path).isDirectory();
+}
+
 function touch(filename: string) {
     var tm = new Date;
     fs.utimesSync(filename, tm, tm);
 }
 
 
-export { ln_sf, cp_r, linkrel, ifExists, touch }
+export { ln_sf, rm_rf, cp_r, linkrel, ifExists, isDirectory, touch }
