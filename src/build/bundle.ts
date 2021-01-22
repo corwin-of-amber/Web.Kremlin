@@ -161,7 +161,7 @@ class AcornCrawl extends InEnvironment {
 
     visitFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         var fn = ref.filename;
-        if      (fn.endsWith('.js'))   return this.visitJSFile(ref, opts);
+        if      (/\.[cm]?js$/.test(fn))   return this.visitJSFile(ref, opts);
         else if (fn.endsWith('.css'))  return this.visitCSSFile(ref, opts);
         else if (fn.endsWith('.json')) return this.visitJSONFile(ref, opts);
         else if (fn.endsWith('.html')) return this.visitHtmlFile(ref, opts);
