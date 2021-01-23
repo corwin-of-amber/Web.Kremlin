@@ -39,10 +39,11 @@
     "which": "^2.0.2"
   },
   "scripts": {
-    "bootstrap": "npx tsc --project . --module commonjs --outDir build/boot && node build/boot/cli src/cli.ts src/plug.ts",
-    "build": "node build/kremlin/cli.js src/cli.ts src/plug.ts",
-    "build+gui": "node build/kremlin/cli.js index.html src/cli.ts src/plug.ts",
-    "watch": "node build/kremlin/cli.js --watch src/cli.ts src/plug.ts",
+    "postinstall": "cd shim && npm install",
+    "bootstrap": "npx tsc --project . --module commonjs --outDir build/boot && node build/boot/cli --node src/cli.ts src/plug.ts",
+    "build": "node build/kremlin/cli.js --node src/cli.ts src/plug.ts",
+    "build+gui": "node build/kremlin/cli.js --node index.html src/cli.ts src/plug.ts",
+    "watch": "node build/kremlin/cli.js --node --watch src/cli.ts src/plug.ts",
     "start": "nw .&"
   },
   "devDependencies": {
