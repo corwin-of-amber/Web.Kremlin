@@ -11,6 +11,14 @@
   "bin": {
     "kremlin": "build/kremlin/cli.js"
   },
+  "files": [
+    "build/kremlin/cli.js",
+    "build/kremlin/plug.js",
+    "index.js",
+    "reload.js",
+    "tsconfig.json",
+    "src"
+  ],
   "dependencies": {
     "@vue/component-compiler": "https://github.com/corwin-of-amber/vue-component-compiler/releases/download/v4.2.3-0/vue-component-compiler-4.2.3-0.tar.gz",
     "acorn": "^8.0.4",
@@ -57,7 +65,6 @@
     "Chrome 80"
   ],
   "app": {
-    "main": "build/kremlin/index.html",
-    "icon": "Icon.icns"
+    "main": "build/kremlin/index.html"
   }
 }
