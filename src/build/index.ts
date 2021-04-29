@@ -40,7 +40,7 @@ class Builder {
             break;
         case 'browser':
             this.env.policy = new BrowserPolicy;
-            this.env.infra.push(new BrowserShims().in(this.env));
+            this.env.infra.push(new BrowserShims());
             break;
         }
     }
@@ -50,8 +50,10 @@ class Builder {
     }
 
     build() {
-        this.deploy(this.crawl());
-        if (!this.isOk()) this.console.error("build failed.");
+        Environment.runIn(this.env, () => {
+            this.deploy(this.crawl());
+            if (!this.isOk()) this.console.error("build failed.");
+        });
     }
 
     crawl() {
@@ -89,7 +91,7 @@ class Builder {
 
     static defaultEnvironment() {
         var env = new Environment;
-        env.infra = [new NodeJSRuntime().in(env)];
+        env.infra = [new NodeJSRuntime()];
         env.compilers = [new TypeScriptCompiler(),
                          new VueCompiler(),
                          new LiveScriptCompiler(),

@@ -200,15 +200,14 @@ class AcornCrawl extends InEnvironment {
 
         if (m.isLoose) this.env.report.warn(null, "module parsed loosely due to syntax errors.");
 
-        var _lookup = (src: string) => {
+        var lookup = (src: string) => {
             try {
                 return (!sp.aliases[src] && this.modules.intrinsic.get(src))
                        || sp.lookup(src);
             }
             catch (e) { return new StubModule(src, e); }
         };
-        var lookup = (src: string) => _lookup(src).in(this.env),
-             mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
+        var mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
 
         m.extractImports();
         var deps = m.imports.map(u => mkdep(u, lookup(u.source.value)))
@@ -220,12 +219,11 @@ class AcornCrawl extends InEnvironment {
     visitHtml(m: HtmlModule, opts: VisitOptions = {}): VisitResult {
         var dir = opts.basedir || m.dir, sp = new SearchPath([dir], [dir]);
 
-        var _lookup = (src: string) => {
+        var lookup = (src: string) => {
             try       { return sp.lookup(src); }
             catch (e) { return new StubModule(src, e); }
         };
-        var lookup = (src: string) => _lookup(src).in(this.env),
-            mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
+        var mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
 
         var deps = m.getRefTags().map(({path, tag}) => mkdep(tag, lookup(path)));
         return {compiled: m, deps};
@@ -765,7 +763,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     /** @todo should probably be configurable somehow? */
     static DEFAULT_ACORN_OPTIONS: acorn.Options =
-        {sourceType: 'module', ecmaVersion: 2020};
+        {sourceType: 'module', ecmaVersion: 2020, allowHashBang: true};
 }
 
 namespace TextSource {

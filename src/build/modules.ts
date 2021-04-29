@@ -2,11 +2,11 @@ const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
       path = (0||require)('path') as typeof import('path'),
       findUp = (0||require)('find-up');
 
-import { Environment, InEnvironment } from './environment';
+import { Environment } from './environment';
 
 
 
-abstract class ModuleRef extends InEnvironment {
+abstract class ModuleRef {
     get id() {
         return JSON.stringify([this.constructor.name, Object.assign({}, this)]);
     }
@@ -23,7 +23,7 @@ class PackageDir extends ModuleRef {
         super();
         this.dir = dir;
         this.parent = parent || PackageDir.lookUp(dir);
-        this.manifestFile = this.getIfExists('package.json');
+        this.manifestFile = this.getIfExists('package.json') as SourceFile; /** @oops */
     }
     get id() { return JSON.stringify([this.constructor.name, this.dir]); };
     get canonicalName() {
@@ -38,7 +38,7 @@ class PackageDir extends ModuleRef {
                 JSON.parse(this.manifestFile.readSync()) : {};
         }
         catch (e) {
-            this.env.report.error(this, 
+            Environment.get().report.error(this, 
                 `failed to read manifest in ${this.dir}; ${e}`);
             return {}; 
         }
@@ -50,10 +50,15 @@ class PackageDir extends ModuleRef {
     }
     getIfExists(filename: string) {
         var fn = path.join(this.dir, filename);
-        if (fs.existsSync(fn)) return new SourceFile(fn, this);
+        try {
+            var stat = fs.statSync(fn);
+            return stat.isDirectory() ? 
+                new PackageDir(fn, this) : new SourceFile(fn, this);
+        }
+        catch { return undefined; }
     }
     getMain(): SourceFile {
-        return this.env.policy.packageEntryPoint(this);
+        return Environment.get().policy.packageEntryPoint(this);
     }
     normalize(): SourceFile | PackageDir {
         try { return this.getMain(); } catch { return this; }
@@ -114,8 +119,6 @@ class ShimModule extends ModuleRef {
     get id() { return JSON.stringify([this.constructor.name, this.name]); };
     get canonicalName() { return `shim://${this.name}`; }
     normalize() { return this.subst.normalize(); }
-
-    in(env: Environment) { this.subst = this.subst.in(env); return super.in(env); }
 }
 
 class StubModule extends ModuleRef {

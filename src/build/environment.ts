@@ -1,6 +1,9 @@
 const path = (0||require)('path') as typeof import('path');
+import 'zone.js';
 
 import nonenumerable from '../infra/non-enumerable';
+import { ModuleRef, NodeModule, ShimModule,
+         PackageDir, SourceFile, MainFileNotFound } from './modules';
 import type { Transpiler } from './transpile';
 
 
@@ -12,29 +15,33 @@ class Environment {
     report: Report = new ReportSilent
 }
 
+namespace Environment {
+    export function get(): Environment {
+        return Zone.current.get('env');
+    }
+    export function runIn<T>(env: Environment, cb: () => T): T {
+        return Zone.current.fork({name: 'Environment', properties: {env}})
+                           .run(cb);
+    }
+}
+
 class InEnvironment {
     @nonenumerable
     env: Environment
     in(env: Environment) { this.env = env; return this; }
 }
 
-export { Environment, InEnvironment }
+class Library {
+    modules: (ModuleRef & {name: string})[] = [];
+}
 
-/* needs to be after InEnvironment (cyclic deps :/) */
-import { ModuleRef, NodeModule, ShimModule,
-    PackageDir, SourceFile, MainFileNotFound } from './modules';
+export { Environment, InEnvironment, Library }
+
+/* needs to be after InEnvironment, Library (cyclic deps :/) */
 import { BuildCache } from './cache';
 import { Report, ReportSilent } from './ui/report';
-    
+import { SearchPath } from './bundle';
 
-class Library extends InEnvironment {
-    modules: (ModuleRef & {name: string})[] = [];
-
-    in(env: Environment) {
-        this.modules = this.modules.map(m => m.in(env));
-        return super.in(env);
-    }
-}
 
 class NodeJSRuntime extends Library {
     constructor() {
@@ -50,15 +57,25 @@ class NodeJSRuntime extends Library {
 class BrowserShims extends Library {
     constructor() {
         super();
+        var path = this.getPath();
+        this.modules = ['path', 'events', 'assert', 'util', 'zlib', 'stream',
+                        'url', 'querystring', 'crypto', 'buffer', 'process']
+            .map(m => new ShimModule(m, path.lookup(m))); 
+    }
+
+    getPath() {
         const findUp = (0||require)('find-up'),
               cwd = typeof __dirname !== 'undefined' ? __dirname : '.',
-              shimdir = findUp.sync('shim', {cwd, type: 'directory'}),
-              altnames = {zlib: 'browserify-zlib', crypto: 'crypto-browserify',
-                          stream: 'stream-browserify'};
-        this.modules.push(...['path', 'events', 'assert', 'util', 'zlib', 'stream',
-                              'url', 'querystring', 'crypto', 'buffer', 'process']
-            .map(m => new ShimModule(m, 
-                new PackageDir(path.join(shimdir, 'node_modules', altnames[m] || m)))));
+              nmdir = findUp.sync('node_modules', {cwd, type: 'directory'});
+
+        return new SearchPath(
+            [nmdir, path.join(nmdir, 'nwjs-kremlin-shim', 'node_modules')], [], 
+            BrowserShims.ALTNAMES);
+    }
+
+    static readonly ALTNAMES = {
+        zlib: 'browserify-zlib', crypto: 'crypto-browserify',
+        stream: 'stream-browserify'
     }
 }
 
@@ -76,8 +93,8 @@ class PolicyBase implements Policy {
         for (let candidate of this.getMainFilenames(pd.manifest)
                               .filter(x => typeof x === 'string')) {
             for (let ext of ['', '.js', '.ts']) {  // oops: hard-coded extensions here
-                var sf = pd.getIfExists(candidate + ext);
-                if (sf) return sf;
+                var sf = pd.getIfExists(candidate + ext)?.normalize();
+                if (sf instanceof SourceFile) return sf;
             }
         }
         throw new MainFileNotFound(pd);
@@ -98,5 +115,4 @@ class BrowserPolicy extends PolicyBase {
 
 
 
-export { Library, NodeJSRuntime, BrowserShims,
-         NodeJSPolicy, BrowserPolicy }
+export { NodeJSRuntime, BrowserShims, NodeJSPolicy, BrowserPolicy }
