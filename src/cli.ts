@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 import commander from 'commander';
 import type { ProjectDefinition } from './project';
 import _ from './plug';

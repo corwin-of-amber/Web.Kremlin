@@ -8,7 +8,7 @@ import { InEnvironment } from './environment';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          ModuleDependency } from './modules';
 import { VisitResult, CompilationUnit, PassThroughModule,
-         HtmlModule, ConcatenatedJSModule } from './bundle';
+         AcornJSModule, HtmlModule, ConcatenatedJSModule } from './bundle';
 
 
 
@@ -187,13 +187,13 @@ class Postprocessor<CU extends CompilationUnit, R> {
                 compiled: this.deploy.include
             }] : [],
             load = this.deploy.modules.map(m => ({
-                source: this.referenceOf(m.dmod.ref), target: m.dmod.ref,
+                source: this.referenceOf(m.dmod), target: m.dmod.ref,
                 compiled: m.targets
             }));
         return pre.concat(load);
     }    
 
-    referenceOf(ref: ModuleRef): R { return undefined; }
+    referenceOf(ref: DeployModule): R { return undefined; }
 }
 
 
@@ -209,8 +209,8 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
         this.scripts = unit.getRefTags();
     }
 
-    referenceOf(m: ModuleRef): HtmlRef {
-        var cn = m.canonicalName,
+    referenceOf(m: DeployModule): HtmlRef {
+        var cn = m.ref.canonicalName,
             lu = this.scripts.find(({path}) => cn.endsWith(path));
         return lu && lu.tag;
     }
@@ -219,7 +219,7 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
 type HtmlRef = parse5.DefaultTreeElement;
 
 
-class ConcatenatedJSPostprocessor extends Postprocessor<ConcatenatedJSModule, {}> {
+class ConcatenatedJSPostprocessor extends Postprocessor<ConcatenatedJSModule, AcornJSModule> {
 
     entryPoints: ModuleRef[]
 
@@ -228,9 +228,10 @@ class ConcatenatedJSPostprocessor extends Postprocessor<ConcatenatedJSModule, {}
         this.entryPoints = entryPoints;
     }
 
-    referenceOf(m: ModuleRef): {} {
-        const mid = m.id;
-        return this.entryPoints.some(x => x.id === mid) ? {} : undefined;
+    referenceOf(m: DeployModule): AcornJSModule {
+        const mid = m.ref.id;
+        return m.compiled instanceof AcornJSModule && 
+               this.entryPoints.some(x => x.id === mid) ? m.compiled : undefined;
     }
 }
 

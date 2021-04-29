@@ -355,14 +355,17 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
             this.makeIncludeTag(c, d.target))
         ).join('\n');
 
+        var text = this.text;
         if (entries.length > 0) {
-            return TextSource.interpolate(this.text, entries.map((e, i) => {
+            text =  TextSource.interpolate(text, entries.map((e, i) => {
                 var k = this.processScript(e.tag, e.ref);
                 if (i == 0) k.text = tags + '\n' + k.text;
                 return k;
             }));
         }
-        else return this.text + '\n' + tags;
+        else text += '\n' + tags;
+
+        return this.postprocess(text);
     }
 
     processScript(script: parse5.DefaultTreeElement, ref: ModuleRef) {
@@ -409,6 +412,12 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
         return `\n<script>kremlin.require('${key}');</script>`;
     }
 
+    postprocess(text: string) {
+        for (let [m, v] of HtmlModule._MACROS)
+            text = text.replace(m, v);
+        return text;
+    }
+
     _urlOf(m: SourceFile) {
         return this._rel(m.filename);
     }
@@ -420,6 +429,11 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     static fromSourceFile(m: SourceFile) {
         return new this(m.readSync(), path.dirname(m.filename));
     }
+
+    static readonly _MACROS = [
+        ['<!-- @kremlin.plug -->',
+         `<script>var k = require('nwjs-kremlin').watch({window});</script>`]
+    ];
 }
 
 
@@ -446,8 +460,8 @@ class JsonModule extends InEnvironment implements CompilationUnit {
 class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     contentType = 'js'
 
-    process(key: string, deps: ModuleDependency[]) {
-        var preamble = '#!/usr/bin/env node',  /** @todo only if executable */
+    process(key: string, deps: ModuleDependency<AcornJSModule>[]) {
+        var preamble = deps.map(d => d.source?.extractShebang()).find(x => x),
             contents = this.readAll(deps),
             init = this.require(deps.filter(d => d.source));
 
@@ -604,7 +618,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 [].concat(...imports, ...requires, ...exports)
                 .map(([node, text]) => ({...node, text})));
 
-        if (!prog.match(/\n\s+$/)) prog += '\n'; // in case prog ends with single-line comment
+        prog = this.postprocess(prog);
 
         return `kremlin.m['${key}'] = (module,exports,global) => {${prog}};`;
     }
@@ -725,6 +739,18 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 return nm;
             }
         }
+    }
+
+    postprocess(prog: string) {
+        // in case prog ends with single-line comment
+        if (!prog.match(/\n\s+$/)) prog += '\n';
+        // removes `#!`
+        return prog.replace(/^#!.*/, '');
+    }
+
+    extractShebang() {
+        var mo = this.text.match(/^#!.*/);
+        return mo && mo[0];
     }
 
     static fromSourceFile(m: SourceFile) {
@@ -878,4 +904,5 @@ namespace AcornUtils {
 
 export { UserDefinedOverrides,
          AcornCrawl, SearchPath, VisitOptions, VisitResult,
-         CompilationUnit, PassThroughModule, HtmlModule, ConcatenatedJSModule }
+         CompilationUnit, PassThroughModule, AcornJSModule,
+         HtmlModule, ConcatenatedJSModule }
