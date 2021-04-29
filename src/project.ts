@@ -32,7 +32,7 @@ namespace ProjectDefinition {
             buildDir: proj.buildDir || 'build/kremlin',
             window: proj.window || <Window>{}
         };
-        norm.main = targets(proj.main ? toArray(proj.main) : ['index.js'], norm);
+        norm.main = targets(proj.main ? toArray(proj.main) : defaultEntry(norm), norm);
         return norm;
     }
 
@@ -58,6 +58,11 @@ namespace ProjectDefinition {
 
     function sources(filenames: string[], proj: ProjectDefinitionNorm) {
         return filenames.map(fn => new SourceFile(resolve(proj, fn)));
+    }
+
+    function defaultEntry(proj: ProjectDefinitionNorm) {
+        var loc = proj.window.location?.href;
+        return loc ? [loc.replace(/.*\//, '')] : ['index.js'];
     }
 
     function guessOutputFor(inputFilename: string) {

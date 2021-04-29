@@ -17,6 +17,7 @@ class Kremlin {
 
     opts: BuildOptions = {}
     persist: boolean = false  // whether to keep app running while watch is active
+    multiwin: boolean = false // whether to watch in all windows (default is first window only)
 
     get console() {
         return (this.proj && (<any>this.proj.window).console) || console;
@@ -45,9 +46,11 @@ class Kremlin {
     }
 
     watch(proj?: ProjectDefinition, persist = this.persist) {
-        this.prepare(proj);
-        this.persist = persist;
-        this._watch();
+        if (this.multiwin || !this.proj || this.proj.window === proj?.window) {
+            this.prepare(proj);
+            this.persist = persist;
+            this._watch();
+        }
         return this;
     }
 
