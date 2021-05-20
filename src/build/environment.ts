@@ -69,7 +69,7 @@ class BrowserShims extends Library {
               nmdir = findUp.sync('node_modules', {cwd, type: 'directory'});
 
         return new SearchPath(
-            [nmdir, path.join(nmdir, 'nwjs-kremlin-shim', 'node_modules')], [], 
+            [nmdir, path.join(nmdir, '..', 'shim', 'node_modules')], [], 
             BrowserShims.ALTNAMES);
     }
 

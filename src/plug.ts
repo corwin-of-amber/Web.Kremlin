@@ -46,7 +46,7 @@ class Kremlin {
     }
 
     watch(proj?: ProjectDefinition, persist = this.persist) {
-        if (this.multiwin || !this.proj || this.proj.window === proj?.window) {
+        if (!proj.window || this.multiwin || !this.proj || this.proj.window === proj?.window) {
             this.prepare(proj);
             this.persist = persist;
             this._watch();
