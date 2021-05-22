@@ -2,15 +2,15 @@ const fs = (0||require)('fs') as typeof import('fs'),
       mkdirp = (0||require)('mkdirp') as typeof import('mkdirp');
 import path from 'path';
 
-import type { SFCDescriptor } from '@vue/compiler-sfc';
+import type { SFCDescriptor } from 'vue3~kremlin';
 
 import { Transpiler } from '../transpile';
 import { SourceFile, GroupedModules, TransientCode } from '../modules';
 
 
 
-class VueCompiler implements Transpiler {
-    sfc: typeof import ('@vue/compiler-sfc')
+class Vue3Compiler implements Transpiler {
+    sfc: typeof import ('vue3~kremlin')
     outDir: string
 
     constructor() {
@@ -19,7 +19,7 @@ class VueCompiler implements Transpiler {
 
     load() {
         if (!this.sfc) {
-            this.sfc = (0||require)('@vue/compiler-sfc');
+            this.sfc = (0||require)('vue3~kremlin');
         }
     }
 
@@ -90,4 +90,4 @@ class VueCompiler implements Transpiler {
 
 
 
-export { VueCompiler }
+export { Vue3Compiler as VueCompiler }

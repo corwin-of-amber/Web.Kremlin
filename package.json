@@ -20,7 +20,6 @@
     "src"
   ],
   "dependencies": {
-    "@vue/compiler-sfc": "^3.0.11",
     "acorn": "^8.0.4",
     "acorn-globals": "git+https://github.com/LongTengDao-fork-B/acorn-globals.git",
     "acorn-loose": "^8.0.1",
@@ -40,6 +39,8 @@
     "prelude-ls": "^1.2.1",
     "typescript": "^4.1.3",
     "underscore": "^1.10.2",
+    "vue2~kremlin": "file:addons/vue/v2",
+    "vue3~kremlin": "file:addons/vue/v3",
     "walk-parse5": "^2.0.0",
     "which": "^2.0.2",
     "zone.js": "^0.11.4"
