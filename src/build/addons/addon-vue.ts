@@ -2,29 +2,15 @@ const fs = (0||require)('fs') as typeof import('fs'),
       mkdirp = (0||require)('mkdirp') as typeof import('mkdirp');
 import path from 'path';
 
-import {
-    parse,
-    compileTemplate,
-    compileStyle,
-    SFCBlock,
-    SFCDescriptor,
-    SFCTemplateCompileOptions,
-    compileScript,
-  } from '@vue/compiler-sfc'
-  /*
-import type VueComponentCompiler from '@vue/component-compiler'
-import type { SFCCompiler } from '@vue/component-compiler'
-import VueTemplateCompiler from 'vue-template-compiler'
-*/
+import type { SFCDescriptor } from '@vue/compiler-sfc';
+
 import { Transpiler } from '../transpile';
-import { SourceFile } from '../modules';
+import { SourceFile, GroupedModules, TransientCode } from '../modules';
 
 
 
 class VueCompiler implements Transpiler {
-    /*cc: typeof VueComponentCompiler
-    tc: typeof VueTemplateCompiler
-    sfc: SFCCompiler*/
+    sfc: typeof import ('@vue/compiler-sfc')
     outDir: string
 
     constructor() {
@@ -32,13 +18,9 @@ class VueCompiler implements Transpiler {
     }
 
     load() {
-        /*
-        if (!this.cc) {
-            this.cc = (0||require)('@vue/component-compiler');
-            this.tc = (0||require)('vue-template-compiler');
-            this.sfc = this.cc.createDefaultCompiler();
+        if (!this.sfc) {
+            this.sfc = (0||require)('@vue/compiler-sfc');
         }
-        */
     }
 
     match(filename: string) { return !!filename.match(/[.]vue$/); }
@@ -48,37 +30,64 @@ class VueCompiler implements Transpiler {
     }
 
     compileSource(source: string, filename?: string) {
-        //this.load();
-        var parsed = parse(source, {sourceMap: true, filename});
+        this.load();
+        var id = 'deadbeef',
+            parsed = this.sfc.parse(source, {sourceMap: true, filename});
         
-        console.log(parsed);
-        console.log(compileTemplate({id: '1', 
-            source: parsed.descriptor.template.content, filename}));
-        //console.log(compileStyle({id: '1', source: parsed.descriptor.styles[0].content, filename}));
-        console.log(compileScript(parsed.descriptor, {id: '1'}));
-        return new SourceFile(filename);
-        /*
-        this.tc.parseComponent(source),
-            desc = this.sfc.compileToDescriptor(filename, source);
-        var out = this.cc.assemble(this.sfc, filename, desc, {}),
-            outFn = path.join(this.outDir, 
-                              this._outputBasename(parsed, filename));
+        var out = this.assemble(parsed.descriptor, id, filename);
 
-        mkdirp.sync(path.dirname(outFn));
-        fs.writeFileSync(outFn, out.code);
-        return new SourceFile(outFn);*/
+        var outCss = new SourceFile(this._basename(filename) + '.css'),
+            outJs = this._output(parsed.descriptor, 
+                `import '*${outCss.filename}';\n${out.js}`, filename);
+        mkdirp.sync(path.dirname(outCss.filename));
+        fs.writeFileSync(outCss.filename, out.css);
+        return new GroupedModules(outJs, {
+            [outCss.filename]: outCss
+        });
     }
 
-    _outputBasename(parsed: SFCDescriptor, filename?: string) {
+    assemble(descriptor: SFCDescriptor, id: string, filename?: string) {
+        var scopeId = `data-v-${id}`;
+
+        var template = this.sfc.compileTemplate({id, filename,
+                scoped: true,
+                source: descriptor.template.content,
+                compilerOptions: {scopeId}
+            }),
+            styles = descriptor.styles.map(s =>
+                this.sfc.compileStyle({id, filename,
+                    scoped: s.scoped,
+                    source: s.content
+                })),
+            script = this.sfc.compileScript(descriptor, {id});
+
+        return {
+            css: styles.map(s => s.code).join('\n'),
+            js:
+                `const __scopeId = ${JSON.stringify(scopeId)}\n` +
+                `${template.code}\n${this._patchExport(script.content)}`
+        };
+    }
+
+    _basename(filename?: string) {
+        return (filename ? path.basename(filename) : 'tmp.vue');
+    }
+
+    _output(parsed: SFCDescriptor, content: string, filename?: string): TransientCode {
         var lang = parsed.script.attrs['lang'] as string,
-            ext = {'ts': '.ts', 'typescript': '.ts'}[lang];
-        return (filename ? path.basename(filename) : 'tmp.vue') + 
-               (ext || '.js');
+            type = {'ts': '.ts', 'typescript': '.ts'}[lang] || 'js',
+            ext = `.${type}`;
+        return new TransientCode(
+            content, type, this._basename(filename) + ext);
+    }
+
+    /** @oops */
+    _patchExport(js: string) {
+        return js.replace(/export\s+default\s+\{/,
+            x => x + 'render, __scopeId,');
     }
 }
 
-
-new VueCompiler().compileFile('data/div.vue');
 
 
 export { VueCompiler }

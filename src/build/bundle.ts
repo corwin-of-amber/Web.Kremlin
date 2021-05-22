@@ -9,7 +9,8 @@ import * as parse5 from 'parse5';
 import parse5Walk from 'walk-parse5'
 import acornGlobals from 'acorn-globals';
 import { Environment, InEnvironment, Library } from './environment';
-import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, ShimModule,
+import { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
+         NodeModule, ShimModule,
          StubModule, ModuleDependency, FileNotFound } from './modules';
 
 
@@ -201,6 +202,7 @@ class AcornCrawl extends InEnvironment {
         if (m.isLoose) this.env.report.warn(null, "module parsed loosely due to syntax errors.");
 
         var lookup = (src: string) => {
+            if (src.startsWith('*')) return new SourceFile(src.slice(1)); /** @oops */
             try {
                 return (!sp.aliases[src] && this.modules.intrinsic.get(src))
                        || sp.lookup(src);
@@ -233,6 +235,7 @@ class AcornCrawl extends InEnvironment {
         if (ref instanceof PackageDir) return this.visitPackageDir(ref, opts);
         else if (ref instanceof SourceFile) return this.visitSourceFile(ref, opts);
         else if (ref instanceof TransientCode) return this.visitTransientCode(ref, opts);
+        else if (ref instanceof GroupedModules) return this.visitGroupedModules(ref, opts);
         else if (ref instanceof StubModule || ref instanceof NodeModule)
             return this.visitLeaf(ref);
         else throw new Error(`cannot visit: ${ref.constructor.name}`);
@@ -252,13 +255,29 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitTransientCode(ref: TransientCode, opts: VisitOptions = {}): VisitResult {
+        return this.safely(ref, '<transient>', () => {
         switch (ref.contentType) {
-        case 'js':
-            return this.safely(ref, '<transient>', () => this.visitJS(
-                new AcornJSModule(ref.content).in(this.env), opts));
-        default:
-            throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
-        }
+            case 'js':
+                return this.visitJS(
+                    new AcornJSModule(ref.content).in(this.env), opts);
+            default:
+                /** @oops all non-JS functionality is essentially duplicated here */
+                var fn = path.join(opts.basedir || '.',
+                                ref.filename || `transient.${ref.contentType}`);
+                for (let cmplr of this.env.compilers) {
+                    if (cmplr.match(fn)) {
+                        var c = cmplr.compileSource(ref.content, fn)
+                        return this.visitModuleRef(c, opts);
+                    }
+                }
+                throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
+            }
+        });
+    }
+
+    visitGroupedModules(ref: GroupedModules, opts: VisitOptions = {}): VisitResult {
+        /** @todo use companions in dependency resolution */
+        return this.visitModuleRef(ref.main, opts);
     }
 
     visitLeaf(ref: NodeModule | StubModule): VisitResult {

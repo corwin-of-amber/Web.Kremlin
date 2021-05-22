@@ -94,12 +94,25 @@ class SourceFile extends ModuleRef {
 class TransientCode extends ModuleRef {
     contentType: string
     content: string
-    constructor(content: string, contentType: string) {
+    filename?: string /* suggested name */
+    constructor(content: string, contentType: string, filename?: string) {
         super();
         this.contentType = contentType;
         this.content = content;
+        this.filename = filename;
     }
     get canonicalName(): string { throw new Error('Internal error: TransientCode#canonicalName'); }
+}
+
+class GroupedModules extends ModuleRef {
+    main: ModuleRef
+    constructor(main: ModuleRef, companions: {[name: string]: ModuleRef}) {
+        super();
+        this.main = main;
+    }
+    get id() { return this.main.id; }
+    get canonicalName() { return this.main.canonicalName; }
+    normalize() { return this.main; }
 }
 
 class NodeModule extends ModuleRef {
@@ -158,6 +171,6 @@ class MainFileNotFound extends ModuleResolutionError {
 
 
 
-export { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule,
-         ShimModule, StubModule, ModuleDependency,
+export { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
+         NodeModule, ShimModule, StubModule, ModuleDependency,
          ModuleResolutionError, FileNotFound, MainFileNotFound }
