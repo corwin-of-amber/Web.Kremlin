@@ -1,5 +1,6 @@
 const fs = (0||require)('fs') as typeof import('fs'),
-      mkdirp = (0||require)('mkdirp') as typeof import('mkdirp');
+      mkdirp = (0||require)('mkdirp') as typeof import('mkdirp'),
+      findUp = (0||require)('find-up') as typeof import('find-up');
 import path from 'path';
 
 import type { VueComponentCompiler, VueTemplateCompiler } from '../../../addons/vue/v2';
@@ -21,6 +22,54 @@ abstract class VueCompiler implements Transpiler {
     
     abstract compileFile(filename: string): ModuleRef
     abstract compileSource(source: string, filename?: string): ModuleRef
+}
+
+
+class VueCompilerAutodetect extends VueCompiler {
+    _loaded: Map<number, VueCompiler> = new Map
+
+    compileFile(filename: string) {
+        var c = this.autoload(filename);
+        return c.compileFile(filename);
+    }
+
+    compileSource(source: string, filename?: string) {
+        var c = this.autoload(filename);
+        return c.compileSource(source, filename);
+    }
+
+    autoload(filename?: string) {
+        return this._load(this.autodetect(filename));
+    }
+
+    _load(version: number) {
+        var c = this._loaded.get(version);
+        if (c) return c;
+        else switch (version) {
+            case 2: c = new Vue2Compiler; break;
+            case 3: c = new Vue3Compiler; break;
+        }
+        this._loaded.set(version, c);
+        return c;
+    }
+
+    /**
+     * Inspects `package-lock.json` to find the version of Vue used by the
+     * project.
+     * @param filename name of file being compiled
+     * @returns either `2` or `3`
+     */
+    autodetect(filename?: string) {
+        var dir = filename ? path.dirname(filename) : '.',
+            pkglock = findUp.sync('package-lock.json', {cwd: dir});
+        if (pkglock) {
+            var json = JSON.parse(fs.readFileSync(pkglock, 'utf-8')),
+                vue = json.dependencies?.['vue']?.version;
+            if (typeof vue === 'string' && vue.startsWith('3'))
+                return 3;
+        }
+        return 2;
+    }
 }
 
 
@@ -143,4 +192,4 @@ class Vue3Compiler extends VueCompiler {
 
 
 
-export { Vue3Compiler as VueCompiler }
+export { VueCompilerAutodetect as VueCompiler }
