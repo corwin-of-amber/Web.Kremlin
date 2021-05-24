@@ -39,14 +39,12 @@
     "prelude-ls": "^1.2.1",
     "typescript": "^4.1.3",
     "underscore": "^1.10.2",
-    "vue2~kremlin": "file:addons/vue/v2",
-    "vue3~kremlin": "file:addons/vue/v3",
     "walk-parse5": "^2.0.0",
     "which": "^2.0.2",
     "zone.js": "^0.11.4"
   },
   "scripts": {
-    "prepare": "cd shim && npm install",
+    "prepare": "( cd shim && npm install ) && ( cd addons && npm install )",
     "bootstrap": "npx tsc --project . --module commonjs --outDir build/boot && node build/boot/cli --node src/cli.ts src/plug.ts",
     "build": "node build/kremlin/cli.js --node src/cli.ts src/plug.ts",
     "build+gui": "node build/kremlin/cli.js --node index.html src/cli.ts src/plug.ts",
