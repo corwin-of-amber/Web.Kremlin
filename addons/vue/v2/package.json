@@ -1,0 +1,9 @@
+{
+    "name": "vue2~kremlin",
+    "version": "0.2.0",
+    "dependencies": {
+        "@vue/component-compiler": "^4.2.4",
+        "vue": "^2.6.12",
+        "vue-template-compiler": "^2.6.12"
+    }
+}

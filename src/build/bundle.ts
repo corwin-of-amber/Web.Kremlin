@@ -9,7 +9,8 @@ import * as parse5 from 'parse5';
 import parse5Walk from 'walk-parse5'
 import acornGlobals from 'acorn-globals';
 import { Environment, InEnvironment, Library } from './environment';
-import { ModuleRef, SourceFile, PackageDir, TransientCode, NodeModule, ShimModule,
+import { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
+         NodeModule, ShimModule,
          StubModule, ModuleDependency, FileNotFound } from './modules';
 
 
@@ -200,7 +201,9 @@ class AcornCrawl extends InEnvironment {
 
         if (m.isLoose) this.env.report.warn(null, "module parsed loosely due to syntax errors.");
 
-        var lookup = (src: string) => {
+        var lookup = (u: acorn.Node, src: string) => {
+            if (m.isExternalRef(u)) return new NodeModule(src);
+            if (src.startsWith('*')) return new SourceFile(src.slice(1)); /** @oops */
             try {
                 return (!sp.aliases[src] && this.modules.intrinsic.get(src))
                        || sp.lookup(src);
@@ -210,9 +213,9 @@ class AcornCrawl extends InEnvironment {
         var mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
 
         m.extractImports();
-        var deps = m.imports.map(u => mkdep(u, lookup(u.source.value)))
-            .concat(m.requires.map(u => mkdep(u, lookup(u.arguments[0].value))))
-            .concat(m.exportsFrom.map(u => mkdep(u, lookup(u.source.value))));
+        var deps = m.imports.map(u => mkdep(u, lookup(u, u.source.value)))
+            .concat(m.requires.map(u => mkdep(u, lookup(u, u.arguments[0].value))))
+            .concat(m.exportsFrom.map(u => mkdep(u, lookup(u, u.source.value))));
         return {compiled: m, deps};
     }
 
@@ -233,6 +236,7 @@ class AcornCrawl extends InEnvironment {
         if (ref instanceof PackageDir) return this.visitPackageDir(ref, opts);
         else if (ref instanceof SourceFile) return this.visitSourceFile(ref, opts);
         else if (ref instanceof TransientCode) return this.visitTransientCode(ref, opts);
+        else if (ref instanceof GroupedModules) return this.visitGroupedModules(ref, opts);
         else if (ref instanceof StubModule || ref instanceof NodeModule)
             return this.visitLeaf(ref);
         else throw new Error(`cannot visit: ${ref.constructor.name}`);
@@ -252,13 +256,29 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitTransientCode(ref: TransientCode, opts: VisitOptions = {}): VisitResult {
+        return this.safely(ref, '<transient>', () => {
         switch (ref.contentType) {
-        case 'js':
-            return this.safely(ref, '<transient>', () => this.visitJS(
-                new AcornJSModule(ref.content).in(this.env), opts));
-        default:
-            throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
-        }
+            case 'js':
+                return this.visitJS(
+                    new AcornJSModule(ref.content).in(this.env), opts);
+            default:
+                /** @oops all non-JS functionality is essentially duplicated here */
+                var fn = path.join(opts.basedir || '.',
+                                ref.filename || `transient.${ref.contentType}`);
+                for (let cmplr of this.env.compilers) {
+                    if (cmplr.match(fn)) {
+                        var c = cmplr.compileSource(ref.content, fn)
+                        return this.visitModuleRef(c, opts);
+                    }
+                }
+                throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
+            }
+        });
+    }
+
+    visitGroupedModules(ref: GroupedModules, opts: VisitOptions = {}): VisitResult {
+        /** @todo use companions in dependency resolution */
+        return this.visitModuleRef(ref.main, opts);
     }
 
     visitLeaf(ref: NodeModule | StubModule): VisitResult {
@@ -487,6 +507,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     dir?: string
     text: string
     ast: acorn.Node
+    directives: ProcessingDirective[]
     isLoose: boolean = false;
 
     contentType = 'js'
@@ -506,15 +527,32 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         super();
         this.text = text;
         this.dir = dir;
-        this.ast = this.parse(text);
+        var parsed = this.parse(text);
+        this.ast = parsed.ast;
+        this.directives = parsed.directives;
+        this.isLoose = parsed.isLoose;
     }
 
     parse(text: string) {
-        try { return acorn.parse(text, this.acornOptions); }
+        var opts: acorn.Options = {
+                ...this.acornOptions,
+                onComment: (isBlock, text, start, end) => 
+                    directives.push(...this.parseDirectives(text, {start, end}))
+            },
+            directives: ProcessingDirective[] = [];
+
+        try { var ast = acorn.parse(text, opts), isLoose = false; }
         catch (e) {
-            this.isLoose = true;
-            return acornLoose.parse(text, this.acornOptions);
+            ast = acornLoose.parse(text, opts);
+            isLoose = true;
         }
+        return {ast, directives, isLoose};
+    }
+
+    parseDirectives(text: string, at: {start: number, end: number}): ProcessingDirective[] {
+        var mo = text.match(/@kremlin[. ](\w+)(:?\((.*?)\))?/);
+        if (mo) return [{name: mo[1], arguments: mo[2] && mo[2].split(','), at}]
+        else return [];
     }
 
     extractImports() {
@@ -562,6 +600,12 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         return s;
     }
 
+    _getAssociatedDirectives(node: acorn.Node) {
+        var at = {start: node.start, end: node.end};
+        return this.directives.filter(d =>
+            TextSource.areOnSameLine(this.text, at, d.at));
+    }
+
     get exportsFrom() {
         return this.exports.filter(u => this.isExportFrom(u)) as
                 (acorn.Node & {source?: AcornTypes.Literal})[];
@@ -589,6 +633,11 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     isExportFrom(node: acorn.Node): node is AcornTypes.ExportNamedDeclaration {
         return (AcornUtils.is(node, 'ExportNamedDeclaration') ||
                 AcornUtils.is(node, 'ExportAllDeclaration')) && !!node.source;
+    }
+
+    isExternalRef(node: acorn.Node) {
+        return this._getAssociatedDirectives(node).some(d =>
+            ['native', 'external'].includes(d.name));
     }
 
     _isShorthandProperty(node: AcornTypes.Identifier) {
@@ -766,7 +815,24 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         {sourceType: 'module', ecmaVersion: 2020, allowHashBang: true};
 }
 
+type ProcessingDirective = {
+    name: string
+    arguments?: string[]
+    at: {start: number, end: number}
+};
+
 namespace TextSource {
+    /**
+     * Returns `true` if the spans share a line
+     */
+    export function areOnSameLine(inp: string,
+                    at1: {start: number, end: number}, 
+                    at2: {start: number, end: number}) {
+        if (at2.start > at1.end) {
+            return !inp.substring(at2.start, at1.end).includes('\n')
+        }
+        else return false; /** @todo */
+    }
     /**
      * Utility function for replacing some elements within a source file.
      * @param inp source text

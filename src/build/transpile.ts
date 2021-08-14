@@ -8,6 +8,7 @@ import { SearchPath } from './bundle';
 interface Transpiler {
     match(filename: string): boolean;
     compileFile(filename: string): ModuleRef;
+    compileSource(source: string, filename?: string): ModuleRef;
 }
 
 
@@ -36,6 +37,10 @@ class DummyCompiler implements Transpiler {
         }
 
         throw new Error(`Could not find compiled module '${filename}'`);
+    }
+
+    compileSource(source: string, filename?: string): ModuleRef {
+        throw new Error(`Could not find compiled module '${filename || 'unknown'}'`);
     }
 
     candidates(filename: string) {

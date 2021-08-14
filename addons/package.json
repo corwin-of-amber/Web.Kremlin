@@ -1,0 +1,5 @@
+{
+    "scripts": {
+        "prepare": "( cd vue/v2 && npm install ) && ( cd vue/v3 && npm install )"
+    }
+}
