@@ -61,7 +61,7 @@ namespace ProjectDefinition {
     }
 
     function defaultEntry(proj: ProjectDefinitionNorm) {
-        var loc = proj.window.location?.href;
+        var loc = proj.window.location?.pathname;
         return loc ? [loc.replace(/.*\//, '')] : ['index.js'];
     }
 
