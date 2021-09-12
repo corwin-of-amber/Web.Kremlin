@@ -60,6 +60,11 @@ class Deployment extends InEnvironment {
         this.add(new DeployModule(vis.origin.normalize(), vis.compiled, vis.deps));
     }
 
+    addAsset(asset: SourceFile) {
+        var ptm = PassThroughModule.fromSourceFile(asset, 'plain');
+        this.write(new DeployModule(asset, ptm, []));
+    }
+
     addInclude(fn: string = 'src/build/include.js') {
         var cwd = typeof __dirname !== 'undefined' ? __dirname : '.',
             ref = new SourceFile(findUp.sync(fn, {cwd}), null, 'js'),
@@ -68,8 +73,11 @@ class Deployment extends InEnvironment {
     }
 
     newFilename(filename: string, contentType: string) {
-        var ext = `.${contentType}`,
+        var ext = '', basename = filename;
+        if (contentType !== 'plain') {
+            ext = `.${contentType}`;
             basename = this.withoutExt(filename, ext);
+        }
         function *candidates() {
             yield basename;
             for (let i = 0; ; i++) yield `${basename}-${i}`;

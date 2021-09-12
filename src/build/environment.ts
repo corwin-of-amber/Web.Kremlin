@@ -1,4 +1,4 @@
-const path = (0||require)('path') as typeof import('path');
+import path from 'path'; /* @kremlin.native */
 import 'zone.js';
 
 import nonenumerable from '../infra/non-enumerable';
@@ -79,7 +79,9 @@ class BrowserShims extends Library {
     }
 }
 
-
+/**
+ * A Policy instructs the bundler how to locate modules in packages.
+ */
 interface Policy {
     packageEntryPoint(pd: PackageDir): SourceFile;
 }
@@ -92,7 +94,7 @@ class PolicyBase implements Policy {
     packageEntryPoint(pd: PackageDir): SourceFile {
         for (let candidate of this.getMainFilenames(pd.manifest)
                               .filter(x => typeof x === 'string')) {
-            for (let ext of ['', '.js', '.ts']) {  // oops: hard-coded extensions here
+            for (let ext of ['', '.js', '.ts']) {  /** @oops hard-coded extensions here */
                 var sf = pd.getIfExists(candidate + ext)?.normalize();
                 if (sf instanceof SourceFile) return sf;
             }

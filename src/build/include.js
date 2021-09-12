@@ -30,23 +30,21 @@ var kremlin = {m: {}, loaded: {}, debug: false,
         else
             m.exports = Object.assign(m.exports, d);
     },
-    node_require(nm) {
-        var m = require(nm);
-        this.loaded[`node://${nm}`] = {exports: m};
-        return m;
-    },
-    node_startup(deps) {
+    startup() {
         var glob = (typeof global !== 'undefined') ? global : null,
             win  = (typeof window !== 'undefined') ? window : null;
         this.global =  win || glob || {};
         if (typeof process === 'undefined')
             this.global.process = {env: {}, browser: true};
         else if (win) process.browser = true;  /* for NWjs */
-        if (typeof require !== 'undefined')
-            for (let m of deps) this.node_require(m);
+        if (typeof require === 'undefined')
+            this.global.require = nm => { console.warn(`require(${nm})`); return {}; }
+        if (typeof __filename == 'undefined') this.global.__filename = '';
+        if (typeof __dirname  == 'undefined') this.global.__dirname = '';
+    },
+    plug(proj) {
+        return require('nwjs-kremlin').watch?.(proj);
     }
 };
 
-kremlin.node_startup([] /** @todo probably deps are not needed anymore? */);
-
-var __filename = '';
+kremlin.startup();

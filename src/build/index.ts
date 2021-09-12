@@ -1,8 +1,8 @@
 import { SourceFile, PackageDir } from './modules';
 import { Environment, NodeJSRuntime, BrowserShims,
          NodeJSPolicy, BrowserPolicy} from './environment';
-import { AcornCrawl, UserDefinedOverrides,
-         SearchPath, VisitResult } from './bundle';
+import { UserDefinedOverrides, UserDefinedAssets } from './configuration';
+import { AcornCrawl, SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
 import { TypeScriptCompiler } from './addons/addon-typescript';
@@ -21,6 +21,9 @@ class Builder {
 
     opts: BuildOptions
 
+    userModules: UserDefinedOverrides
+    userAssets: UserDefinedAssets
+
     constructor(proj: ProjectDefinition = {}, env = Builder.defaultEnvironment(),
                 options: BuildOptions = {}) {
         this.env = env;
@@ -34,6 +37,10 @@ class Builder {
      * Configure environment using options.
      */
     _configure() {
+        var pd = new PackageDir(this.proj.wd);
+        this.userModules = new UserDefinedOverrides(pd);
+        this.userAssets = new UserDefinedAssets(pd);
+
         switch (this.opts.target) {
         case 'node':
             this.env.policy = new NodeJSPolicy;
@@ -66,6 +73,10 @@ class Builder {
 
         var deploy = new Deployment(resolve(proj, proj.buildDir)).in(this.env);
 
+        for (let a of this.userAssets.assets) {
+            deploy.addAsset(a);
+        }
+
         for (let m of modules.values()) {
             deploy.addVisitResult(m);
         }
@@ -84,9 +95,9 @@ class Builder {
     }
 
     configure() {
-        var pd = new PackageDir(this.proj.wd), env = this.env,
-            userModules = new UserDefinedOverrides(pd);
-        return {...env, infra: env.infra.concat([userModules])};
+        var env = this.env, u = this.userModules;
+        return (u && u.modules.length > 0) ?
+            {...env, infra: env.infra.concat([u])} : env;
     }
 
     static defaultEnvironment() {

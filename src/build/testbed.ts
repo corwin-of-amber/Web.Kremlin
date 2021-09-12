@@ -1,9 +1,7 @@
-const path = (0||require)('path') as typeof import('path');
-import $ from 'jquery';
-
-import { AcornCrawl } from './bundle';
+import { AcornCrawl, AcornJSModule } from './bundle';
 import { Deployment } from './deploy';
 
+/** @todo UI is broken since the Vue dependency no longer exists in the top-level package */
 import { ModuleDepNavigator } from './ui/introspect';
 import { ProjectDefinition, resolve } from '../project';
 import { Builder } from '.';
@@ -50,10 +48,12 @@ function testbed() {
 
     deploy.wrapUp(proj.main);
 
+    /*
     var nav = new ModuleDepNavigator(proj, ac);
-    $(() => document.body.append(nav.view.$el));
+    $(() => document.body.append(nav.view.$el));  // todo use DOMContentLoaded
+    */
 
-    Object.assign(window, {ac, deploy});
+    Object.assign(window, {ac, deploy, AcornJSModule});
 }
 
 testbed();

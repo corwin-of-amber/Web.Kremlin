@@ -8,9 +8,9 @@ import * as acornWalk from 'acorn-walk';
 import * as parse5 from 'parse5';
 import parse5Walk from 'walk-parse5'
 import acornGlobals from 'acorn-globals';
-import { Environment, InEnvironment, Library } from './environment';
+import { Environment, InEnvironment } from './environment';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
-         NodeModule, ShimModule,
+         NodeModule,
          StubModule, ModuleDependency, FileNotFound } from './modules';
 
 
@@ -86,27 +86,6 @@ class SearchPath {
 }
 
 
-class UserDefinedOverrides extends Library {
-    constructor(pd: PackageDir) {
-        super();
-        if (pd.manifestFile) {
-            var m = pd.manifest;
-            if (typeof m.browser === 'object' && m.browser['mass-confusion']) {
-                this.globalSubstitutes(pd, m.browser);
-            }
-        }
-    }
-
-    globalSubstitutes(pd: PackageDir, d: {[name: string]: string | boolean | {}}) {
-        for (let [name, sub] of Object.entries(d)) {
-            if (!name.startsWith('.')) {
-                this.modules.push(typeof sub === 'string'
-                    ? new ShimModule(name, new PackageDir(path.join(pd.dir, sub)))
-                    : new StubModule(name, null));
-            }
-        }
-    }
-}
 
 
 class AcornCrawl extends InEnvironment {
@@ -205,10 +184,13 @@ class AcornCrawl extends InEnvironment {
             if (m.isExternalRef(u)) return new NodeModule(src);
             if (src.startsWith('*')) return new SourceFile(src.slice(1)); /** @oops */
             try {
-                return (!sp.aliases[src] && this.modules.intrinsic.get(src))
-                       || sp.lookup(src);
+                /** @todo This setting will prioritized locally installed modules. Is it ok? Should this be configurable? */
+                return sp.lookup(src);
             }
-            catch (e) { return new StubModule(src, e); }
+            catch (e) {
+                return this.modules.intrinsic.get(src) 
+                       || new StubModule(src, e);
+            }
         };
         var mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
 
@@ -310,8 +292,8 @@ class PassThroughModule extends InEnvironment implements CompilationUnit {
 
     process(key: string, deps: ModuleDependency[]) { return this.content; }
 
-    static fromSourceFile(m: SourceFile) {
-        return new this(m.readSync(), this.guessContentType(m));
+    static fromSourceFile(m: SourceFile, contentType?: string) {
+        return new this(m.readSync(), contentType ?? this.guessContentType(m));
     }
 
     static guessContentType(m: SourceFile) {
@@ -450,7 +432,7 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
 
     static readonly _MACROS = [
         ['<!-- @kremlin.plug -->',
-         `<script>var k = require('nwjs-kremlin').watch({window});</script>`]
+         `<script>var k = kremlin.plug({window});</script>`]
     ];
 }
 
@@ -520,6 +502,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         globals: Map<string, AcornTypes.Identifier[]>
         used: Set<string>
     }
+    metas: AcornTypes.MetaProperty[]
 
     acornOptions = AcornJSModule.DEFAULT_ACORN_OPTIONS
 
@@ -574,6 +557,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
             globals: this._extractGlobals(),
             used: this._extractVarNames()
         };
+        this.metas = this._extractMetaProperties();
     }
 
     _extractGlobals() {
@@ -587,6 +571,17 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         }
         catch (e) { this.env.report.warn(null, e); }
         return globals;
+    }
+
+    _extractMetaProperties() {
+        var s: AcornTypes.MetaProperty[] = [];
+        try {
+            acornWalk.full(this.ast, u => {
+                if (AcornUtils.is(u, "MetaProperty")) s.push(u);
+            });
+        }
+        catch (e) { this.env.report.warn(null, e); }
+        return s;
     }
 
     _extractVarNames() {
@@ -660,9 +655,10 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 var dep = deps.find(d => d.source === exp);  // for `export .. from`
                 return this.processExport(exp, dep && dep.target);
             }),
+            metas = this.metas.map(mp => [[mp, '__todo_metavar']]),
 
             prog = TextSource.interpolate(this.text, 
-                [].concat(...imports, ...requires, ...exports)
+                [].concat(...imports, ...requires, ...exports, ...metas)
                 .map(([node, text]) => ({...node, text})));
 
         prog = this.postprocess(prog);
@@ -943,6 +939,12 @@ declare namespace AcornTypes {
         shorthand: boolean
     }
 
+    class MetaProperty extends acorn.Node {
+        type: "MetaProperty"
+        meta: Identifier
+        property: Identifier
+    }
+
 }
 
 namespace AcornUtils {
@@ -959,6 +961,7 @@ namespace AcornUtils {
     export function is(node: acorn.Node, type: "FunctionDeclaration"): node is AcornTypes.FunctionDeclaration
     export function is(node: acorn.Node, type: "Identifier"): node is AcornTypes.Identifier
     export function is(node: acorn.Node, type: "Property"): node is AcornTypes.Property
+    export function is(node: acorn.Node, type: "MetaProperty"): node is AcornTypes.MetaProperty
     export function is(node: acorn.Node, type: string): boolean
 
     export function is(node: acorn.Node, type: string) { return node.type === type; }
@@ -966,7 +969,6 @@ namespace AcornUtils {
 
 
 
-export { UserDefinedOverrides,
-         AcornCrawl, SearchPath, VisitOptions, VisitResult,
+export { AcornCrawl, SearchPath, VisitOptions, VisitResult,
          CompilationUnit, PassThroughModule, AcornJSModule,
          HtmlModule, ConcatenatedJSModule }
