@@ -663,7 +663,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
         prog = this.postprocess(prog);
 
-        return `kremlin.m['${key}'] = (module,exports,global) => {${prog}};`;
+        return `kremlin.m['${key}'] = function(module,exports,global) {${prog}};`;
     }
 
     processImport(imp: AcornTypes.ImportDeclaration | AcornTypes.ImportExpression, ref: ModuleRef) {
