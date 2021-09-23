@@ -1,7 +1,34 @@
 import path from 'path';  /** @kremlin.native */
+import type { ProjectDefinition } from '../project';
 import { Library } from './environment';
 import { SourceFile, PackageDir, ShimModule, StubModule } from './modules';
 
+
+class UserDefinedProjectOptions {
+    proj: {ignore?: string[]} = {}
+
+    constructor(pd: PackageDir) {
+        if (pd.manifestFile) {
+            var ignoreDefs = pd.manifest?.kremlin?.ignore;
+            if (ignoreDefs) this.setIgnores(ignoreDefs);
+        }
+    }
+
+    apply(proj: ProjectDefinition) {
+        if (this.proj.ignore)
+            proj.ignore = [...proj.ignore, ...this.proj.ignore];
+    }
+
+    setIgnores(defs: any) {
+        if (!Array.isArray(defs))
+            throw new Error('invalid ignore definitions (`kremlin.ignore`); expected an array');
+        for (let d of defs)
+            if (typeof d !== 'string')
+                throw new Error(`invalid ignore definition '${d}' (in \`kremlin.ignore\`); expected string`);
+
+        this.proj.ignore = defs.map(x => x.toString());
+    }
+}
 
 class UserDefinedOverrides extends Library {
     constructor(pd: PackageDir) {
@@ -55,4 +82,4 @@ class UserDefinedAssets {
 }
 
 
-export { UserDefinedOverrides, UserDefinedAssets }
+export { UserDefinedProjectOptions, UserDefinedOverrides, UserDefinedAssets }

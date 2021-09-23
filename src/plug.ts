@@ -3,9 +3,11 @@
 import path from 'path';
 import { FSWatcher } from 'fs';
 import _ from 'lodash';
+import minimatch from 'minimatch';
 import { ProjectDefinition, ProjectDefinitionNorm } from './project';
 import { Builder, BuildOptions } from './build';
 import { ReportToConsole } from './build/ui/report';
+import { UserDefinedProjectOptions } from './build/configuration';
 
 
 
@@ -15,7 +17,7 @@ class Kremlin {
     builder: Builder
     watcher: FSWatcher
 
-    opts: BuildOptions = {}
+    opts: BuildOptions & {watch?: WatchOptions} = {}
     persist: boolean = false  // whether to keep app running while watch is active
     multiwin: boolean = false // whether to watch in all windows (default is first window only)
 
@@ -49,19 +51,24 @@ class Kremlin {
         if (!proj.window || this.multiwin || !this.proj || this.proj.window === proj?.window) {
             this.prepare(proj);
             this.persist = persist;
+            if (this.proj.ignore) {
+                this.opts.watch ??= {};
+                this.opts.watch.ignore =
+                    this.proj.ignore.map(pat => new minimatch.Minimatch(pat));
+            }
             this._watch();
         }
         return this;
     }
 
     _watch() {
-        const fs = (0||require)('fs') as typeof import('fs');
+        const fs = require('fs'); /** @kremlin.native */
         var proj = this.proj;
 
         var trigger = _.debounce(() => this.reload(), 200);
 
         var watcher = fs.watch(proj.wd, {persistent: this.persist, recursive: true}, 
-            (_event, filename) => {
+            (_event: string, filename: string) => {
                 if (filename && this._ignored(filename)) return ;
                 this.console.log(`%c[changed] ${filename}`, 'color: #bbb');
                 trigger();
@@ -112,14 +119,25 @@ class Kremlin {
         });
     }
 
+    *_fileAndAncestors(filename: string) {
+        while (!['', '.', '/'].includes(filename)) {
+            yield filename;
+            filename = path.dirname(filename);
+        }
+    }
+
     _ignoreFuncs: ((filename: string) => boolean)[] = [
         (filename) => filename.split(path.sep).some(
             (x) => x[0] == '.' || x == 'node_modules' || x == 'bower_components'),
         (filename) => !!/^\d+$/.exec(filename),
-        (filename) => this.proj && filename.startsWith(this.proj.buildDir)
+        (filename) => this.proj && filename.startsWith(this.proj.buildDir),
+        (filename) => this.opts.watch?.ignore?.some(mm =>
+            [...this._fileAndAncestors(filename)].some(fn => mm.match(fn)))
     ];
 }
 
+
+type WatchOptions = {ignore?: minimatch.IMinimatch[]}
 
 
 var instance = new Kremlin;

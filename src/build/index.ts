@@ -1,7 +1,8 @@
 import { SourceFile, PackageDir } from './modules';
 import { Environment, NodeJSRuntime, BrowserShims,
          NodeJSPolicy, BrowserPolicy} from './environment';
-import { UserDefinedOverrides, UserDefinedAssets } from './configuration';
+import { UserDefinedProjectOptions,
+         UserDefinedOverrides, UserDefinedAssets } from './configuration';
 import { AcornCrawl, SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
@@ -17,6 +18,7 @@ class Builder {
 
     env: Environment
     proj: ProjectDefinitionNorm
+    wd: PackageDir
     entryp: SourceFile[]
 
     opts: BuildOptions
@@ -37,9 +39,10 @@ class Builder {
      * Configure environment using options.
      */
     _configure() {
-        var pd = new PackageDir(this.proj.wd);
-        this.userModules = new UserDefinedOverrides(pd);
-        this.userAssets = new UserDefinedAssets(pd);
+        var wd = this.wd = new PackageDir(this.proj.wd);
+        new UserDefinedProjectOptions(wd).apply(this.proj);
+        this.userModules = new UserDefinedOverrides(wd);
+        this.userAssets = new UserDefinedAssets(wd);
 
         switch (this.opts.target) {
         case 'node':

@@ -8,6 +8,7 @@ type ProjectDefinition = {
     wd?: string
     main?: string | (string | TargetDefinition)[]
     buildDir?: string
+    ignore?: string[]
     window?: Window
 }
 
@@ -15,6 +16,7 @@ type ProjectDefinitionNorm = {
     wd: string
     main: TargetDefinition[]
     buildDir: string
+    ignore: string[]
     window?: Window
 }
 
@@ -29,8 +31,9 @@ namespace ProjectDefinition {
         var norm: ProjectDefinitionNorm = {
             wd: proj.wd || '.',
             main: [],
-            buildDir: proj.buildDir || 'build/kremlin',
-            window: proj.window || <Window>{}
+            buildDir: proj.buildDir ?? 'build/kremlin',
+            ignore: proj.ignore ?? [],
+            window: proj.window ?? <Window>{}
         };
         norm.main = targets(proj.main ? toArray(proj.main) : defaultEntry(norm), norm);
         return norm;
