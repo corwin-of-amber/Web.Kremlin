@@ -30,10 +30,10 @@ var kremlin = {m: {}, loaded: {}, debug: false,
         else
             m.exports = Object.assign(m.exports, d);
     },
-    startup() {
+    startup(ctx) {
         var glob = (typeof global !== 'undefined') ? global : null,
             win  = (typeof window !== 'undefined') ? window : null;
-        this.global =  win || glob || {};
+        this.global =  win || glob || ctx || {};
         if (typeof process === 'undefined')
             this.global.process = {env: {}, browser: true};
         else if (win) process.browser = true;  /* for NWjs */
@@ -47,4 +47,4 @@ var kremlin = {m: {}, loaded: {}, debug: false,
     }
 };
 
-kremlin.startup();
+kremlin.startup(this);
