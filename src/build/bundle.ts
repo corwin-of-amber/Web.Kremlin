@@ -67,11 +67,9 @@ class SearchPath {
     }
 
     static _aliased(cwd: string) {
-        var p = new PackageDir(cwd);
-        if (p.manifestFile) {
-            var m = p.manifest;
-            if (typeof m.browser == 'object') return m.browser;
-        }
+        var pd = new PackageDir(cwd);
+        return Object.assign({},
+            ...Environment.get().policy.packageAliases(pd));
     }
 
     static from(dir: string) {
@@ -92,18 +90,23 @@ class AcornCrawl extends InEnvironment {
 
     modules: {
         intrinsic: Map<string, ModuleRef>
+        substitute: Map<string, ModuleRef>
         visited: Map<string, VisitResult>
     }
 
     constructor() {
         super();
-        this.modules = {intrinsic: new Map, visited: new Map};
+        this.modules = {intrinsic: new Map, substitute: new Map,
+                        visited: new Map};
     }
 
     in(env: Environment) {
-        for (let lib of env.infra)
+        for (let lib of env.infra) {
+            var modmap = lib.override ? this.modules.substitute
+                                      : this.modules.intrinsic;
             for (let m of lib.modules)
-                this.modules.intrinsic.set(m.name, m);
+                modmap.set(m.name, m);
+        }
         return super.in(env);
     }
 
@@ -184,8 +187,10 @@ class AcornCrawl extends InEnvironment {
             if (m.isExternalRef(u)) return new NodeModule(src);
             if (src.startsWith('*')) return new SourceFile(src.slice(1)); /** @oops */
             try {
-                /** @todo This setting will prioritized locally installed modules. Is it ok? Should this be configurable? */
-                return sp.lookup(src);
+                /** @todo This setting will prioritized substitute modules, then
+                 * locally installed modules, then intrinsic modules.
+                 *  Is it ok? Should this be configurable? */
+                return this.modules.substitute.get(src) || sp.lookup(src);
             }
             catch (e) {
                 return this.modules.intrinsic.get(src) 

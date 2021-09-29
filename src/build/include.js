@@ -7,6 +7,7 @@ var kremlin = {m: {}, loaded: {}, debug: false,
             this.loaded[k] = mod;
             var fun = this.m[k];
             if (fun) fun.call(mod.exports, mod, mod.exports, this.global);
+            else if (k.endsWith('.css')) return {}; /** @oops */
             else throw new Error('module not found: ' + k);
         }
         var res = mod.hasOwnProperty('exports') ? mod.exports : {};

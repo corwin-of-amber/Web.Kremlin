@@ -1,6 +1,6 @@
 import { SourceFile, PackageDir } from './modules';
 import { Environment, NodeJSRuntime, BrowserShims,
-         NodeJSPolicy, BrowserPolicy} from './environment';
+         NodeJSPolicy, BrowserPolicy, Library} from './environment';
 import { UserDefinedProjectOptions,
          UserDefinedOverrides, UserDefinedAssets } from './configuration';
 import { AcornCrawl, SearchPath, VisitResult } from './bundle';
@@ -39,20 +39,25 @@ class Builder {
      * Configure environment using options.
      */
     _configure() {
-        var wd = this.wd = new PackageDir(this.proj.wd);
-        new UserDefinedProjectOptions(wd).apply(this.proj);
-        this.userModules = new UserDefinedOverrides(wd);
-        this.userAssets = new UserDefinedAssets(wd);
-
+        var shims: Library = undefined;
         switch (this.opts.target) {
         case 'node':
             this.env.policy = new NodeJSPolicy;
             break;
         case 'browser':
             this.env.policy = new BrowserPolicy;
-            this.env.infra.push(new BrowserShims());
+            shims = new BrowserShims();
             break;
         }
+
+        var wd = this.wd = new PackageDir(this.proj.wd);
+        Environment.runIn(this.env, () => {
+            new UserDefinedProjectOptions(wd).apply(this.proj);
+            this.userModules = new UserDefinedOverrides(wd);
+            this.userAssets = new UserDefinedAssets(wd);
+        });
+        if (shims)
+            this.env.infra.push(shims);
     }
 
     get console() {

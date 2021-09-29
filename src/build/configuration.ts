@@ -1,7 +1,7 @@
 import path from 'path';  /** @kremlin.native */
 import type { ProjectDefinition } from '../project';
-import { Library } from './environment';
-import { SourceFile, PackageDir, ShimModule, StubModule } from './modules';
+import { Environment, Library } from './environment';
+import { SourceFile, PackageDir, ShimModule, StubModule, NodeModule } from './modules';
 
 
 class UserDefinedProjectOptions {
@@ -31,13 +31,12 @@ class UserDefinedProjectOptions {
 }
 
 class UserDefinedOverrides extends Library {
+    override = true  /* always takes precedence */
+
     constructor(pd: PackageDir) {
         super();
-        if (pd.manifestFile) {
-            var m = pd.manifest;
-            if (typeof m.browser === 'object' && m.browser['mass-confusion']) {
-                this.globalSubstitutes(pd, m.browser);
-            }
+        for (let defs of Environment.get().policy.packageOverrides(pd)) {
+            this.globalSubstitutes(pd, defs);
         }
     }
 
@@ -46,7 +45,8 @@ class UserDefinedOverrides extends Library {
             if (!name.startsWith('.')) {
                 this.modules.push(typeof sub === 'string'
                     ? new ShimModule(name, new PackageDir(path.join(pd.dir, sub)))
-                    : new StubModule(name, null));
+                    : (sub === true) ? new NodeModule(name)
+                                     : new StubModule(name, null));
             }
         }
     }

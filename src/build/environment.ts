@@ -32,7 +32,8 @@ class InEnvironment {
 }
 
 class Library {
-    modules: (ModuleRef & {name: string})[] = [];
+    override: boolean = false  /* whether to prioritize over local modules */
+    modules: (ModuleRef & {name: string})[] = []
 }
 
 export { Environment, InEnvironment, Library }
@@ -48,7 +49,7 @@ class NodeJSRuntime extends Library {
         super();
         this.modules = ['fs', 'path', 'events', 'assert', 'zlib', 'stream', 'util',
                         'crypto', 'net', 'tty', 'os', 'constants', 'vm',
-                        'http', 'https', 'url', 'querystring', 'tls',
+                        'http', 'https', 'url', 'querystring', 'tls', 'timers',
                         'buffer', 'process', 'child_process']
             .map(m => new NodeModule(m));
     }
@@ -84,6 +85,8 @@ class BrowserShims extends Library {
  */
 interface Policy {
     packageEntryPoint(pd: PackageDir): SourceFile;
+    packageAliases(pd: PackageDir): {[name: string]: any}[]
+    packageOverrides(pd: PackageDir): {[name: string]: any}[]
 }
 
 class PolicyBase implements Policy {
@@ -101,17 +104,49 @@ class PolicyBase implements Policy {
         }
         throw new MainFileNotFound(pd);
     }
+
+    getAliasFields(packageJson: any) {
+        return [];
+    }
+
+    packageAliases(pd: PackageDir): {[name: string]: any}[] {
+        return this.getAliasFields(pd.manifest)
+            .filter(x => typeof x === 'object');
+    }
+
+    getOverrideFields(packageJson: any) {
+        return [];
+    }
+
+    packageOverrides(pd: PackageDir): {[name: string]: any}[] {
+        return this.getOverrideFields(pd.manifest)
+            .filter(x => typeof x === 'object');
+    }
 }
 
 class NodeJSPolicy extends PolicyBase {
     getMainFilenames(packageJson: any) {
         return [packageJson.main, 'index']
     }
+
+    getOverrideFields(packageJson: any) {
+        return [packageJson.kremlin?.node?.externals];
+    }
 }
 
 class BrowserPolicy extends PolicyBase {
     getMainFilenames(packageJson: any) {
         return [packageJson.browser, packageJson.main, 'index']
+    }
+
+    getAliasFields(packageJson: any) {
+        return [packageJson.browser];
+    }
+
+    getOverrideFields(packageJson: any) {
+        var m = packageJson;
+        return typeof m.browser === 'object' && m.browser['mass-confusion']
+            ? [m.browser] : [];
     }
 }
 
