@@ -1,3 +1,4 @@
+// @ts-ignore
 import Vue from 'vue';
 
 // @ts-ignore
