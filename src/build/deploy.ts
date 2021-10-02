@@ -4,6 +4,7 @@ const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
 import path from 'path';
 import assert from 'assert';
 import * as parse5 from 'parse5';
+import { CaseInsensitiveSet } from '../infra/keyed-collections';
 import { InEnvironment } from './environment';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          ModuleDependency } from './modules';
@@ -44,7 +45,7 @@ class DeployModule {
 
 class Deployment extends InEnvironment {
     outDir: string
-    files: Set<string> = new Set
+    files: Set<string> = new CaseInsensitiveSet
     modules: {dmod: DeployModule, targets: SourceFile[]}[] = []
     include: SourceFile[]
 
