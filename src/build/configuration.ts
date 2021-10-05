@@ -1,3 +1,4 @@
+import fs from 'fs'       /** @kremlin.native */
 import path from 'path';  /** @kremlin.native */
 import type { ProjectDefinition } from '../project';
 import { Environment, Library } from './environment';
@@ -44,11 +45,21 @@ class UserDefinedOverrides extends Library {
         for (let [name, sub] of Object.entries(d)) {
             if (!name.startsWith('.')) {
                 this.modules.push(typeof sub === 'string'
-                    ? new ShimModule(name, new PackageDir(path.join(pd.dir, sub)))
+                    ? new ShimModule(name, this.locateSubstitute(pd, sub))
                     : (sub === true) ? new NodeModule(name)
                                      : new StubModule(name, null));
             }
         }
+    }
+
+    locateSubstitute(pd: PackageDir, sub: string) {
+        /** @todo this should probably be deferred to the crawling phase */
+        var fp = path.join(pd.dir, sub);
+        try {
+            if (!fs.statSync(fp).isDirectory()) return new SourceFile(fp);
+        }
+        catch { }
+        return new PackageDir(fp);
     }
 }
 
