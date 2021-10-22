@@ -5,13 +5,16 @@ import nonenumerable from '../infra/non-enumerable';
 import { ModuleRef, NodeModule, ShimModule,
          PackageDir, SourceFile, MainFileNotFound } from './modules';
 import type { Transpiler } from './transpile';
+import { BuildCache, OutputCache } from './cache';
+import { Report, ReportSilent } from './ui/report';
 
 
 class Environment {
     infra: Library[] = []
     compilers: Transpiler[] = []
     policy: Policy = new BrowserPolicy
-    cache: BuildCache = new BuildCache
+    cache: {build: BuildCache, out: OutputCache} =
+        {build: new BuildCache, out: new OutputCache}
     report: Report = new ReportSilent
 }
 
@@ -39,8 +42,6 @@ class Library {
 export { Environment, InEnvironment, Library }
 
 /* needs to be after InEnvironment, Library (cyclic deps :/) */
-import { BuildCache } from './cache';
-import { Report, ReportSilent } from './ui/report';
 import { SearchPath } from './bundle';
 
 

@@ -1,8 +1,7 @@
-const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
-      mkdirp = (0||require)('mkdirp') as typeof import('mkdirp'),
-      findUp = (0||require)('find-up');
+import fs from 'fs';            /* @kremlin.native */
 import path from 'path';
 import assert from 'assert';
+import findUp from 'find-up';   /* @kremlin.native */
 import * as parse5 from 'parse5';
 import { CaseInsensitiveSet } from '../infra/keyed-collections';
 import { InEnvironment } from './environment';
@@ -104,9 +103,11 @@ class Deployment extends InEnvironment {
 
     writeFileSync(filename: string, content: string, contentType?: string) {
         var outp = path.join(this.outDir, filename);
-        this.env.report.deploy(outp);
-        mkdirp.sync(path.dirname(outp));
-        fs.writeFileSync(outp, content);
+        if (this.env.cache.out.update(outp, content)) {
+            this.env.report.deploy(outp);
+            fs.mkdirSync(path.dirname(outp), {recursive: true});
+            fs.writeFileSync(outp, content);
+        }
         this.files.add(filename);
         return new SourceFile(outp, null, contentType);
     }

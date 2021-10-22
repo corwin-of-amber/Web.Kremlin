@@ -129,7 +129,7 @@ class AcornCrawl extends InEnvironment {
     }
 
     memo(m: ModuleRef, op: (m: ModuleRef) => VisitResult) {
-        return this.env.cache.memo(m, 'visit', op);
+        return this.env.cache.build.memo(m, 'visit', op);
     }
 
     safely(ref: ModuleRef, name: string, f: () => VisitResult): VisitResult {
@@ -506,6 +506,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     vars: {
         globals: Map<string, AcornTypes.Identifier[]>
         used: Set<string>
+        generated: Set<string>
     }
     metas: AcornTypes.MetaProperty[]
 
@@ -560,7 +561,8 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     extractVars() {
         this.vars = {
             globals: this._extractGlobals(),
-            used: this._extractVarNames()
+            used: this._extractVarNames(),
+            generated: new Set
         };
         this.metas = this._extractMetaProperties();
     }
@@ -647,6 +649,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     process(key: string, deps: ModuleDependency<acorn.Node>[]) {
         if (!this.vars) this.extractVars();
+        this.vars.generated.clear(); /* reset */
 
         var imports = this.imports.map(imp => {
                 var dep = deps.find(d => d.source === imp);
@@ -782,8 +785,8 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         if (!this.vars) this.extractVars();
         for (let i = 0; ; i++) {
             var nm = `${base}_${i}`;
-            if (!this.vars.used.has(nm)) {
-                this.vars.used.add(nm);
+            if (!this.vars.used.has(nm) && !this.vars.generated.has(nm)) {
+                this.vars.generated.add(nm);
                 return nm;
             }
         }

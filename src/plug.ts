@@ -1,5 +1,3 @@
-// build with
-//  parcel build --no-minify --target node --public-url=. src/plug.ts
 import path from 'path';
 import { FSWatcher } from 'fs';
 import _ from 'lodash';
@@ -7,7 +5,6 @@ import minimatch from 'minimatch';
 import { ProjectDefinition, ProjectDefinitionNorm } from './project';
 import { Builder, BuildOptions } from './build';
 import { ReportToConsole } from './build/ui/report';
-import { UserDefinedProjectOptions } from './build/configuration';
 
 
 

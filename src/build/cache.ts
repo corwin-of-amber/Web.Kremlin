@@ -1,4 +1,5 @@
-const fs = (0||require)('fs') as typeof import('fs');
+import fs from 'fs';           /* @kremlin.native */
+import crypto from 'crypto';   /* @kremlin.native (for performance) */
 
 import { ModuleRef, SourceFile } from './modules';
 import { VisitResult } from './bundle';
@@ -57,5 +58,23 @@ namespace BuildCache {
 }
 
 
+class OutputCache {
+    hashes = new Map<string, string>()
 
-export { BuildCache }
+    update(fn: string, content: string) {
+        var h = this.hash(content);
+        if (this.hashes.get(fn) !== h) {
+            this.hashes.set(fn, h);
+            return true;
+        }
+        else return false;
+    }
+
+    hash(content: string) {
+        return crypto.createHash('sha256').update(content).digest('base64');
+    }
+}
+
+
+
+export { BuildCache, OutputCache }
