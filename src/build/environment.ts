@@ -62,7 +62,10 @@ class BrowserShims extends Library {
         var path = this.getPath();
         this.modules = ['path', 'events', 'assert', 'util', 'zlib', 'stream',
                         'url', 'querystring', 'crypto', 'buffer', 'process']
-            .map(m => new ShimModule(m, path.lookup(m))); 
+            .map(m => {
+                try { return new ShimModule(m, path.lookup(m)); }
+                catch { /* shim is missing */ } 
+            }).filter(x => x); 
     }
 
     getPath() {
@@ -71,14 +74,19 @@ class BrowserShims extends Library {
               nmdir = findUp.sync('node_modules', {cwd, type: 'directory'});
 
         return new SearchPath(
-            [nmdir, path.join(nmdir, '..', 'shim', 'node_modules')], [], 
-            BrowserShims.ALTNAMES);
+            [nmdir, ...BrowserShims.ALTPATHS.map(e => path.join(nmdir, ...e))],
+            [], BrowserShims.ALTNAMES);
     }
 
     static readonly ALTNAMES = {
         zlib: 'browserify-zlib', crypto: 'crypto-browserify',
         stream: 'stream-browserify'
     }
+
+    static readonly ALTPATHS = [
+        ['nwjs-kremlin-shim', 'node_modules'],
+        ['..', 'shim', 'node_modules']
+    ]
 }
 
 /**
