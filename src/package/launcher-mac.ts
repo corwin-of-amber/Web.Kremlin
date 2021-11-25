@@ -18,11 +18,29 @@ class NWjsOrigin {
     rootDir: string
     appDir: string
 
-    constructor() {
-        this.rootDir = fs.realpathSync(resolveg('nw'));
-        this.appDir = path.join(this.rootDir, 'nwjs/nwjs.app');
+    constructor(fromPath?: string) {
+        this.rootDir = fromPath ?? NWjsOrigin.auto();
+        this.appDir = NWjsOrigin.subdir(this.rootDir);
         if (!ifExists(this.appDir))
             throw new Error(`missing NWjs app dir '${this.appDir}'`);
+    }
+
+    static auto() {
+        return fs.realpathSync(resolveg('nw'));
+    }
+
+    static subdir(root: string, subdirs: string[] = ['nwjs.app', 'nwjs/nwjs.app']) {
+        for (let s of subdirs) {
+            if (path.basename(root) == s) return root;
+        }
+        for (let s of subdirs) {
+            var subdir = path.join(root, s);
+            try {
+                if (fs.statSync(subdir).isDirectory()) return subdir;
+            }
+            catch { }
+        }
+        return root; /* reasonable fallback..? */
     }
 }
 
@@ -103,13 +121,14 @@ const structure = {
 }
 
 
-function main() {
-    var nw = new NWjsOrigin(),
+export function main(o: {nwPath?: string}) {
+    var nw = new NWjsOrigin(o.nwPath),
         pkg = new PackageDir('.'),
         app = new AppDir(path.basename(process.cwd()), pkg.dir);
     var banner = ["-".repeat(60),
                   `Creating:  ${app.appDir}`,
-                  `NWjs:      ${nw.appDir}`,   "-".repeat(60)];
+                  `NWjs:      ${nw.appDir}`,
+                  "-".repeat(60)];
 
     console.log(banner.join('\n'));
 
@@ -127,4 +146,4 @@ function main() {
 }
 
 
-main();
+//main();
