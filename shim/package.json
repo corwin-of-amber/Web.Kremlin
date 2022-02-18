@@ -1,7 +1,7 @@
 {
     "name": "nwjs-kremlin-shim",
     "version": "0.1.0",
-    "description": "Collected packages for shimming Node.js in browsers",
+    "description": "A curated collection of packages for shimming Node.js in browsers",
     "repository": {
         "type": "git",
         "url": "github:corwin-of-amber/nwjs-kremlin"

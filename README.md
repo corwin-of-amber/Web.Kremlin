@@ -48,3 +48,26 @@ There are a few command-line options (try `kremlin --help`):
 | `-w` / `--watch`  | Keep running and recompile whenever files in the current directory change. |
 | `-p` / `--prod`   | Generate a production build — force concatenation of all the `.js` files into a single bundle.  |
 | `--node`          | Generate a bundle that runs in Node.js (only for a `.js` entry point).     |
+
+## Extra stuff
+
+### Automatic rebuild & reload
+
+NW.js application developers can make use of the Kremlin Plug by including the
+following code snippet in the main HTML document:
+```html
+<script>var k = kremlin.plug({window});</script>
+```
+
+Or use the abbreviation `<!-- @kremlin.plug -->`.
+While the page is loaded in NW.js, Kremlin will watch the working directory and re-launch the build in response to changes.
+
+The argument to `kremlin.plug` is an options object with the following fields (all
+optional, see `src/project.ts`):
+| Field            | Meaning       |
+|------------------|---------------|
+| wd: string       | Working directory (default `.`) |
+| main: string     | Main entry point(s) (default is to guess based on the location) |    
+| buildDir: string  | Build output directory (default `build/kremlin`)          |
+| ignore: string[]  | List of locations (globs) to ignore when watching for changes |
+| window: Window    | The active browser window object   |
