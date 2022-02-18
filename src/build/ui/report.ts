@@ -1,3 +1,4 @@
+import { Environment } from '../environment';
 import { ModuleRef, SourceFile } from '../modules';
 
 
@@ -44,11 +45,15 @@ class ReportToConsole implements Report {
     }
 
     error(ref: ModuleRef, err: any) {
-        try   { var where = ref.canonicalName; }
-        catch { where = this._lastSf?.canonicalName || '(unknown)'; }
-        this.console.log(`%cerror in ${where}`, 'color: #3030ff');
-        this.console.error(err);
-        this.status = Status.ERROR;
+        /* Avoid unwanted recursion if `ref.canonicalName` itself reports an error,
+         * e.g. if `package.json` has been removed */
+        Environment.runIn(Environment.NULL(), () => {
+            try   { var where = ref.canonicalName; }
+            catch { where = this._lastSf?.canonicalName || '(unknown)'; }
+            this.console.log(`%cerror in ${where}`, 'color: #3030ff');
+            this.console.error(err);
+            this.status = Status.ERROR;
+        });
     }
 
     warn(ref: ModuleRef, msg: any) {

@@ -1,6 +1,7 @@
 import path from 'path'; /* @kremlin.native */
 import 'zone.js';
 
+import { lazily } from '../infra/memo';
 import nonenumerable from '../infra/non-enumerable';
 import { ModuleRef, NodeModule, ShimModule,
          PackageDir, SourceFile, MainFileNotFound } from './modules';
@@ -26,6 +27,8 @@ namespace Environment {
         return Zone.current.fork({name: 'Environment', properties: {env}})
                            .run(cb);
     }
+
+    export const NULL = lazily(() => new Environment());
 }
 
 class InEnvironment {
