@@ -89,6 +89,14 @@ class Kremlin {
         setTimeout(() => this.watch(proj, persist), 1000);
     }
 
+    config(params: ProjectDefinition) {
+        var watching = !!this.watcher,
+            proj = ProjectDefinition.normalize({...(this.proj ?? {}), ...params});
+        if (watching) { this.unwatch(); }
+        this.proj = undefined;
+        if (watching) { this.watch(proj); } else { this.prepare(proj); }
+    }
+
     reboot() { 
         for (let k in global.require.cache) {
             if (global.require.cache[k].exports === module.exports
