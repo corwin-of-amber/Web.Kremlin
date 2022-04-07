@@ -54,7 +54,7 @@ class NodeJSRuntime extends Library {
         this.modules = ['fs', 'path', 'events', 'assert', 'zlib', 'stream', 'util',
                         'crypto', 'net', 'tty', 'os', 'constants', 'vm',
                         'http', 'https', 'url', 'querystring', 'tls', 'timers',
-                        'buffer', 'process', 'child_process']
+                        'buffer', 'process', 'child_process', 'string_decoder']
             .map(m => new NodeModule(m));
     }
 }
