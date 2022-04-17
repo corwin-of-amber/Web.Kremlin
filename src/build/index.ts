@@ -6,6 +6,7 @@ import { UserDefinedProjectOptions,
 import { AcornCrawl, SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { DummyCompiler } from './transpile';
+import { DevAdjustments, ProdAdjustments } from './adjustments';
 import { TypeScriptCompiler } from './addons/addon-typescript';
 import { VueCompiler } from './addons/addon-vue';
 import { LiveScriptCompiler } from './addons/addon-livescript';
@@ -48,6 +49,14 @@ class Builder {
             this.env.policy = new BrowserPolicy;
             shims = new BrowserShims();
             break;
+        }
+        switch (this.opts.mode) {
+        case 'dev':
+            this.env.adjustments['html'] = [new DevAdjustments.Html];
+            break;
+        case 'prod':
+            this.env.adjustments['html'] = [new ProdAdjustments.Html];
+            break;            
         }
 
         var wd = this.wd = new PackageDir(this.proj.wd);

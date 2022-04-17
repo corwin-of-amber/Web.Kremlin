@@ -418,8 +418,8 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     }
 
     postprocess(text: string) {
-        for (let [m, v] of HtmlModule._MACROS)
-            text = text.replace(m, v);
+        for (let pp of Environment.get().adjustments['html'] ?? [])
+            text = pp.postprocess(text);
         return text;
     }
 
@@ -434,11 +434,6 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     static fromSourceFile(m: SourceFile) {
         return new this(m.readSync(), path.dirname(m.filename));
     }
-
-    static readonly _MACROS = [
-        ['<!-- @kremlin.plug -->',
-         `<script>var k = kremlin.plug({window});</script>`]
-    ];
 }
 
 

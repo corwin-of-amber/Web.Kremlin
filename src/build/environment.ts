@@ -6,6 +6,7 @@ import nonenumerable from '../infra/non-enumerable';
 import { ModuleRef, NodeModule, ShimModule,
          PackageDir, SourceFile, MainFileNotFound } from './modules';
 import type { Transpiler } from './transpile';
+import type { Adjustment } from './adjustments';
 import { BuildCache, OutputCache } from './cache';
 import { Report, ReportSilent } from './ui/report';
 
@@ -13,6 +14,7 @@ import { Report, ReportSilent } from './ui/report';
 class Environment {
     infra: Library[] = []
     compilers: Transpiler[] = []
+    adjustments: {[type: string]: Adjustment[]} = {}
     policy: Policy = new BrowserPolicy
     cache: {build: BuildCache, out: OutputCache} =
         {build: new BuildCache, out: new OutputCache}
