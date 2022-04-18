@@ -15,7 +15,7 @@ class Adjustment {
 
 
 abstract class PostprocessMacros {
-    abstract readonly _MACROS: [string, string][]
+    abstract readonly _MACROS: Macros
 
     postprocess(text: string): string {
         for (let [m, v] of this._MACROS)
@@ -24,11 +24,13 @@ abstract class PostprocessMacros {
     }
 }
 
+type Macros = [string | RegExp, string][]
+
 
 namespace DevAdjustments {
 
     export class Html extends PostprocessMacros {
-        readonly _MACROS: [string, string][] = [
+        readonly _MACROS: Macros = [
             ['<!-- @kremlin.plug -->',
              `<script>var k = kremlin.plug({window});</script>`]
         ];
@@ -39,8 +41,9 @@ namespace DevAdjustments {
 namespace ProdAdjustments {
 
     export class Html extends PostprocessMacros {
-        readonly _MACROS: [string, string][] = [
-            ['<!-- @kremlin.plug -->', '']
+        readonly _MACROS: Macros = [
+            ['<!-- @kremlin.plug -->', ''],
+            [/<script>k\?.*?<\/script>/g, '']
         ];
     }
 
