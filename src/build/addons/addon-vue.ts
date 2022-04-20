@@ -2,6 +2,7 @@ const fs = (0||require)('fs') as typeof import('fs'),
       mkdirp = (0||require)('mkdirp') as typeof import('mkdirp'),
       findUp = (0||require)('find-up') as typeof import('find-up');
 import path from 'path';
+import { nanoid } from 'nanoid';
 
 import type { VueComponentCompiler, VueTemplateCompiler } from '../../../addons/vue/v2';
 import type { SFCDescriptor } from '../../../addons/vue/v3';
@@ -132,7 +133,7 @@ class Vue3Compiler extends VueCompiler {
 
     compileSource(source: string, filename?: string) {
         this.load();
-        var id = 'deadbeef',
+        var id = nanoid(8),
             parsed = this.sfc.parse(source, {sourceMap: true, filename});
         
         var out = this.assemble(parsed.descriptor, id, filename);
