@@ -1,4 +1,5 @@
-import { AcornCrawl, AcornJSModule } from './bundle';
+import { AcornCrawl } from './bundle';
+import { AcornJSModule } from './loaders/js';
 import { Deployment } from './deploy';
 
 /** @todo UI is broken since the Vue dependency no longer exists in the top-level package */

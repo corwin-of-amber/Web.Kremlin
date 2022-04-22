@@ -1,5 +1,7 @@
 import path from 'path';   /* @kremlin.native */
+
 import * as postcss from 'postcss';
+
 import type { CompilationUnit } from '../bundle';
 import { SourceFile, ModuleDependency } from '../modules';
 import { InEnvironment } from '../environment';
