@@ -12,7 +12,7 @@ import { Environment, InEnvironment } from './environment';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
          NodeModule,
          StubModule, ModuleDependency, FileNotFound } from './modules';
-
+import { PassThroughModule, JsonModule } from './loaders/basic';
 
 
 class SearchPath {
@@ -285,30 +285,6 @@ interface CompilationUnit {
 }
 
 
-class PassThroughModule extends InEnvironment implements CompilationUnit {
-    contentType: string
-    content: string
-
-    constructor(content: string, contentType: string) {
-        super();
-        this.contentType = contentType;
-        this.content = content;
-    }
-
-    process(key: string, deps: ModuleDependency[]) { return this.content; }
-
-    static fromSourceFile(m: SourceFile, contentType?: string) {
-        return new this(m.readSync(), contentType ?? this.guessContentType(m));
-    }
-
-    static guessContentType(m: SourceFile) {
-        if (m.filename.endsWith('.js')) return 'js';
-        else if (m.filename.endsWith('.css')) return 'css';
-        else return 'plain';
-    }
-}
-
-
 class HtmlModule extends InEnvironment implements CompilationUnit {
     dir?: string
     text: string
@@ -433,54 +409,6 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
 
     static fromSourceFile(m: SourceFile) {
         return new this(m.readSync(), path.dirname(m.filename));
-    }
-}
-
-
-class JsonModule extends InEnvironment implements CompilationUnit {
-    text: string
-    contentType = 'js'
-
-    constructor(text: string) {
-        super();
-        this.text = text;
-    }
-
-    process(key: string, deps: ModuleDependency[]) {
-        var prog = this.text;  /** @todo check syntax and/or normalize */
-        return `kremlin.m['${key}'] = (module,exports) => (module.exports =\n${prog});`;
-    }
-
-    static fromSourceFile(m: SourceFile) {
-        return new this(m.readSync());
-    }
-}
-
-
-class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
-    contentType = 'js'
-
-    process(key: string, deps: ModuleDependency<AcornJSModule>[]) {
-        var preamble = deps.map(d => d.source?.extractShebang()).find(x => x),
-            contents = this.readAll(deps),
-            init = this.require(deps.filter(d => d.source));
-
-        return [preamble].concat(...contents).concat(init).join('\n');
-    }
-
-    readAll(deps: ModuleDependency[]) {
-        return deps.map(d => (d.compiled || []).map(ref =>
-            ref instanceof SourceFile && ref.contentType === 'js' ?
-                ref.readSync()
-            : ref instanceof TransientCode && ref.contentType === 'js' ?
-                ref.content
-            : undefined
-        ).filter(x => x));
-    }
-
-    require(deps: ModuleDependency[]) {
-        var keys = deps.map(d => d.target.normalize().canonicalName);
-        return `{ let c = kremlin.requires(${JSON.stringify(keys)}); if (typeof module !== 'undefined') module.exports = c; }`;
     }
 }
 
@@ -973,5 +901,4 @@ namespace AcornUtils {
 
 
 export { AcornCrawl, SearchPath, VisitOptions, VisitResult,
-         CompilationUnit, PassThroughModule, AcornJSModule,
-         HtmlModule, ConcatenatedJSModule }
+         CompilationUnit, AcornJSModule, HtmlModule }

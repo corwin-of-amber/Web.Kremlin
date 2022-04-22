@@ -7,8 +7,9 @@ import { CaseInsensitiveSet } from '../infra/keyed-collections';
 import { InEnvironment } from './environment';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          ModuleDependency } from './modules';
-import { VisitResult, CompilationUnit, PassThroughModule,
-         AcornJSModule, HtmlModule, ConcatenatedJSModule } from './bundle';
+import { VisitResult, CompilationUnit,
+         AcornJSModule, HtmlModule } from './bundle';
+import { PassThroughModule, ConcatenatedJSModule } from './loaders/basic';
 
 
 
