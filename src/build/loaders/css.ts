@@ -11,7 +11,7 @@ class PostCSSModule extends InEnvironment implements CompilationUnit {
     contentType = 'css'
     ast: postcss.Root
 
-    urls: string[] = []
+    urls: Locator[] = []
 
     constructor(text: string, dir?: string) {
         super();
@@ -20,10 +20,13 @@ class PostCSSModule extends InEnvironment implements CompilationUnit {
         this.ast = postcss.parse(text /*, {from: '...'} */)
     }
 
-    process(key: string, deps: ModuleDependency[]) {
-        /** @todo also need to interpolate deps */
-        if (deps.length > 0)
-            console.log('@todo interpolate', key, deps);
+    process(key: string, deps: ModuleDependency<Locator>[]) {
+        for (let {source: {node, expr}, deployed} of deps) {
+            if (deployed.length === 1)
+                node.value = node.value.replace(expr, `url(${deployed[0]})`);
+            else
+                console.warn(`css: cannot interpolate '${expr}' in ${key}`);
+        }
         return this.ast.toResult().css;
     }
 
@@ -31,7 +34,7 @@ class PostCSSModule extends InEnvironment implements CompilationUnit {
         this.ast.walkDecls(decl => {
             if (decl.value) {
                 for (let mo of decl.value.matchAll(/url\((.*?)\)/g)) {
-                    this.urls.push(this._strip(mo[1]));
+                    this.urls.push({node: decl, expr: mo[0], url: this._strip(mo[1])});
                 }
             }
         });
@@ -46,6 +49,8 @@ class PostCSSModule extends InEnvironment implements CompilationUnit {
         return new this(m.readSync(), path.dirname(m.filename));
     }
 }
+
+type Locator = {node: postcss.Declaration, expr: string, url: string};
 
 
 export { PostCSSModule }

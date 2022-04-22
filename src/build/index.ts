@@ -98,13 +98,13 @@ class Builder {
             deploy.addVisitResult(m);
         }
 
-        for (let m of modules.values()) {
-            if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
-        }
-
         if (this.opts.mode === 'prod') deploy.squelch();
 
         deploy.wrapUp(this.proj.main);
+
+        for (let m of modules.values()) {
+            if (!m.compiled) console.log("%c[external]", 'color: red', m.origin);
+        }
     }
 
     isOk() {

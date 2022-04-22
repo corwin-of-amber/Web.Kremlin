@@ -157,7 +157,7 @@ class StubModule extends ModuleRef {
 }
 
 type ModuleDependency<T = any> = 
-    {source: T, target: ModuleRef, compiled?: ModuleRef[]};
+    {source: T, target: ModuleRef, compiled?: ModuleRef[], deployed?: string[]};
 
 
 class ModuleResolutionError { }

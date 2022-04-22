@@ -6,7 +6,7 @@ import * as parse5 from 'parse5';
 import { CaseInsensitiveSet } from '../infra/keyed-collections';
 import { InEnvironment } from './environment';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
-         ModuleDependency } from './modules';
+         BinaryAsset, ModuleDependency } from './modules';
 import { VisitResult, CompilationUnit, AcornJSModule } from './bundle';
 import { PassThroughModule, ConcatenatedJSModule } from './loaders/basic';
 import { HtmlModule } from './loaders/html';
@@ -17,6 +17,7 @@ class DeployModule {
     ref: ModuleRef
     compiled: CompilationUnit
     deps: ModuleDependency[]
+    output?: Output[]
 
     constructor(ref: ModuleRef, compiled: CompilationUnit, deps: ModuleDependency[]) {
         this.ref = ref;
@@ -24,15 +25,15 @@ class DeployModule {
         this.deps = deps;
     }
 
-    get targets(): {body: string | Uint8Array, contentType: string}[] {
+    get targets(): {body: () => string | Uint8Array, contentType: string}[] {
         if (this.compiled)
-            return [{body: this.compiled.process(this.ref.canonicalName, this.deps), 
+            return [{body: () => this.compiled.process(this.ref.canonicalName, this.deps),
                      contentType: this.compiled.contentType}];
         else
             return [];
     }
 
-    get output(): string {
+    get filename(): string {
         if (this.ref instanceof PackageDir)
             assert(0);
         else if (this.ref instanceof SourceFile)
@@ -46,15 +47,15 @@ class DeployModule {
 class Deployment extends InEnvironment {
     outDir: string
     files: Set<string> = new CaseInsensitiveSet
-    modules: {dmod: DeployModule, targets: SourceFile[]}[] = []
-    include: SourceFile[]
+    modules: {dmod: DeployModule, outputs: Output[]}[] = []
+    include: Output[]
 
     constructor(outDir: string) { super(); this.outDir = outDir; }
 
     add(dmod: DeployModule) {
-        var fls = this._isDelayed(dmod) ? [] : this.write(dmod);
-        this.modules.push({dmod, targets: fls});
-        return fls;
+        var outputs = this.prewrite(dmod);
+        this.modules.push({dmod, outputs});
+        return outputs;
     }
 
     addVisitResult(vis: VisitResult) {
@@ -96,38 +97,74 @@ class Deployment extends InEnvironment {
         return filename.endsWith(ext) ? filename.slice(0, -ext.length) : filename;
     }
 
-    write(dmod: DeployModule) {
-        var outfn = dmod.output;
-        return dmod.targets.map(({body, contentType}) =>
-            this.writeFileSync(this.newFilename(outfn, contentType), body, contentType));
+    prewrite(dmod: DeployModule) {
+        var outfn = dmod.filename;
+        dmod.output ??= dmod.targets.map(({body, contentType}) =>
+            new SourceFile(path.join(this.outDir, this.newFilename(outfn, contentType)), null, contentType));
+        return dmod.output;
     }
 
-    writeFileSync(filename: string, content: string | Uint8Array, contentType?: string) {
-        var outp = path.join(this.outDir, filename);
-        if (this.env.cache.out.update(outp, content)) {
-            this.env.report.deploy(outp);
-            fs.mkdirSync(path.dirname(outp), {recursive: true});
-            fs.writeFileSync(outp, content);
+    write(dmod: DeployModule) {
+        if (!dmod.output) this.prewrite(dmod);
+        var targets = dmod.targets, output = dmod.output;
+        assert(targets.length <= (output?.length ?? 0));
+        for (let i = 0; i < targets.length; i++) {
+            this.writeFileSync(output[i].filename, targets[i].body(), targets[i].contentType);
         }
+        return dmod.output ?? [];
+    }
+
+    writeFileSync(filepath: string, content: string | Uint8Array, contentType?: string) {
+        if (this.env.cache.out.update(filepath, content)) {
+            this.env.report.deploy(filepath);
+            fs.mkdirSync(path.dirname(filepath), {recursive: true});
+            fs.writeFileSync(filepath, content);
+        }
+        return new SourceFile(filepath, null, contentType);
+    }
+
+    writeOutput(filename: string, content: string | Uint8Array, contentType?: string) {
         this.files.add(filename);
-        return new SourceFile(outp, null, contentType);
+        var filepath = path.join(this.outDir, filename);
+        return this.writeFileSync(filepath, content, contentType);
+    }
+
+    flush() {
+        for (let {dmod} of this.modules) {
+            if (!this._isDelayed(dmod)) {
+                this._adjustDeps(dmod);
+                this.write(dmod);
+            }
+        }
+    }
+
+    _adjustDeps(dmod: DeployModule) {
+        for (let dep of dmod.deps ?? []) {
+            for (let other of this.modules) {
+                if (dep.target === other.dmod.ref)
+                    dep.deployed = other.outputs.map(out => path.basename(out.filename));
+            }
+        }
     }
 
     /**
      * Concatenates all JS modules.
+     * @todo this is too similar to `makeEntryJS`
      */
     squelch(outputFilename = 'bundle.js') {
+        this.flush();
         var cjs = new ConcatenatedJSModule().in(this.env),
             deps = new ConcatenatedJSPostprocessor(this, cjs, []).getDeps(),
-            out = this.writeFileSync(outputFilename, cjs.process(outputFilename, deps), 'js');
+            out = this.writeOutput(outputFilename, cjs.process(outputFilename, deps), 'js');
 
         for (let m of this.modules) {
-            if (m.targets.some(e => e.contentType === 'js'))
-                m.targets = [out]; /** @todo mixed types? */
+            if (m.outputs.some(e => e.contentType === 'js'))
+                m.outputs = [out]; /** @todo mixed types? */
         }
     }
 
     wrapUp(entries: {input: ModuleRef[], output: string}[]) {
+        this.flush();
         return [...this.wrapUpIter(entries)];
     }
 
@@ -148,7 +185,7 @@ class Deployment extends InEnvironment {
 
         html.outDir = this.outDir;
 
-        return this.writeFileSync(outputFilename, html.process('', deps));
+        return this.writeOutput(outputFilename, html.process(outputFilename, deps), 'html');
     }
 
     makeEntryJS(entry: ModuleRef[], outputFilename: string) {
@@ -157,7 +194,7 @@ class Deployment extends InEnvironment {
         var cjs = new ConcatenatedJSModule().in(this.env),
             deps = new ConcatenatedJSPostprocessor(this, cjs, entry).getDeps();
 
-        return this.writeFileSync(outputFilename, cjs.process(outputFilename, deps));
+        return this.writeOutput(outputFilename, cjs.process(outputFilename, deps), 'js');
     }
 
     /**
@@ -185,6 +222,9 @@ class Deployment extends InEnvironment {
 }
 
 
+type Output = SourceFile | BinaryAsset;
+
+
 class Postprocessor<CU extends CompilationUnit, R> {
     deploy: Deployment
     unit: CU
@@ -201,7 +241,7 @@ class Postprocessor<CU extends CompilationUnit, R> {
             }] : [],
             load = this.deploy.modules.map(m => ({
                 source: this.referenceOf(m.dmod), target: m.dmod.ref,
-                compiled: m.targets
+                compiled: m.outputs
             }));
         return pre.concat(load);
     }    
