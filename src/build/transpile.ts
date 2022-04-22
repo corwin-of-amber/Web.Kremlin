@@ -21,7 +21,7 @@ class AssetBundler implements Transpiler {
     match(filename: string): boolean { return !!filename.match(/[.]png$/); }
 
     compileFile(filename: string): ModuleRef {
-        return new BinaryAsset(fs.readFileSync(filename), 'bin', filename);
+        return new BinaryAsset(fs.readFileSync(filename), 'application/octet-stream', filename);
     }
 
     compileSource(source: string, filename?: string): ModuleRef {

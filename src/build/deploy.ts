@@ -7,9 +7,9 @@ import { CaseInsensitiveSet } from '../infra/keyed-collections';
 import { InEnvironment } from './environment';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          ModuleDependency } from './modules';
-import { VisitResult, CompilationUnit,
-         AcornJSModule, HtmlModule } from './bundle';
+import { VisitResult, CompilationUnit, AcornJSModule } from './bundle';
 import { PassThroughModule, ConcatenatedJSModule } from './loaders/basic';
+import { HtmlModule } from './loaders/html';
 
 
 
@@ -75,7 +75,7 @@ class Deployment extends InEnvironment {
 
     newFilename(filename: string, contentType: string) {
         var ext = '', basename = filename;
-        if (contentType !== 'plain') {
+        if (!Deployment.NOEXT.includes(contentType)) {
             ext = `.${contentType}`;
             basename = this.withoutExt(filename, ext);
         }
@@ -180,6 +180,8 @@ class Deployment extends InEnvironment {
         return new SourceFile(path.relative(from, target.filename),
                               target.package, target.contentType);
     }
+
+    static NOEXT = ['plain', 'application/octet-stream'];
 }
 
 
