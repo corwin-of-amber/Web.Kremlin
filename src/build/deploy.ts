@@ -24,7 +24,7 @@ class DeployModule {
         this.deps = deps;
     }
 
-    get targets(): {body: string, contentType: string}[] {
+    get targets(): {body: string | Uint8Array, contentType: string}[] {
         if (this.compiled)
             return [{body: this.compiled.process(this.ref.canonicalName, this.deps), 
                      contentType: this.compiled.contentType}];
@@ -102,7 +102,7 @@ class Deployment extends InEnvironment {
             this.writeFileSync(this.newFilename(outfn, contentType), body, contentType));
     }
 
-    writeFileSync(filename: string, content: string, contentType?: string) {
+    writeFileSync(filename: string, content: string | Uint8Array, contentType?: string) {
         var outp = path.join(this.outDir, filename);
         if (this.env.cache.out.update(outp, content)) {
             this.env.report.deploy(outp);

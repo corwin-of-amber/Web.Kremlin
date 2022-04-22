@@ -6,9 +6,9 @@ import { SourceFile, TransientCode, ModuleDependency } from '../modules';
 
 class PassThroughModule extends InEnvironment implements CompilationUnit {
     contentType: string
-    content: string
+    content: string | Uint8Array
 
-    constructor(content: string, contentType: string) {
+    constructor(content: string | Uint8Array, contentType: string) {
         super();
         this.contentType = contentType;
         this.content = content;

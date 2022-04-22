@@ -1,5 +1,5 @@
-const fs = (0||require)('fs') as typeof import('fs'),   // use native fs
-      path = (0||require)('path') as typeof import('path');
+import fs from 'fs';      /* @kremlin.native */
+import path from 'path';  /* @kremlin.native */
 import assert from 'assert';
 
 import * as acorn from 'acorn';
@@ -11,8 +11,10 @@ import acornGlobals from 'acorn-globals';
 import { Environment, InEnvironment } from './environment';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
          NodeModule,
-         StubModule, ModuleDependency, FileNotFound } from './modules';
+         StubModule, ModuleDependency, FileNotFound, BinaryAsset } from './modules';
 import { PassThroughModule, JsonModule } from './loaders/basic';
+import { PostCSSModule } from './loaders/css';
+
 
 
 class SearchPath {
@@ -82,8 +84,6 @@ class SearchPath {
                               this._aliased(dir));
     }
 }
-
-
 
 
 class AcornCrawl extends InEnvironment {
@@ -165,8 +165,7 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitCSSFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
-        var pt = PassThroughModule.fromSourceFile(ref);
-        return {compiled: pt, deps: []};
+        return this.visitCSS(PostCSSModule.fromSourceFile(ref));
     }
 
     visitJSONFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
@@ -219,10 +218,26 @@ class AcornCrawl extends InEnvironment {
         return {compiled: m, deps};
     }
 
+    visitCSS(m: PostCSSModule, opts: VisitOptions = {}): VisitResult {
+        var dir = opts.basedir || m.dir, sp = new SearchPath([dir], [dir]);
+
+        var lookup = (src: string) => {
+            try       { return sp.lookup(src); }
+            catch (e) { return new StubModule(src, e); }
+        };
+        var mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
+
+        m.extractUrls();
+        /** @todo get only relative URIs */
+        var deps = m.urls.map(url => mkdep(url, lookup(url)));
+        return {compiled: m, deps};
+    }
+
     visitModuleRef(ref: ModuleRef, opts: VisitOptions = {}): VisitResult {
         if (ref instanceof PackageDir) return this.visitPackageDir(ref, opts);
         else if (ref instanceof SourceFile) return this.visitSourceFile(ref, opts);
         else if (ref instanceof TransientCode) return this.visitTransientCode(ref, opts);
+        else if (ref instanceof BinaryAsset) return this.visitBinaryAsset(ref);
         else if (ref instanceof GroupedModules) return this.visitGroupedModules(ref, opts);
         else if (ref instanceof StubModule || ref instanceof NodeModule)
             return this.visitLeaf(ref);
@@ -263,6 +278,10 @@ class AcornCrawl extends InEnvironment {
         });
     }
 
+    visitBinaryAsset(ref: BinaryAsset, opts: VisitOptions = {}): VisitResult {
+        return {origin: ref, compiled: new PassThroughModule(ref.content, ref.contentType), deps: []};
+    }
+
     visitGroupedModules(ref: GroupedModules, opts: VisitOptions = {}): VisitResult {
         /** @todo use companions in dependency resolution */
         return this.visitModuleRef(ref.main, opts);
@@ -281,7 +300,7 @@ type VisitResult = {origin?: ModuleRef, compiled: CompilationUnit, deps: ModuleD
 interface CompilationUnit {
     env: Environment
     contentType: string
-    process(key: string, deps: ModuleDependency[]): string
+    process(key: string, deps: ModuleDependency[]): string | Uint8Array
 }
 
 

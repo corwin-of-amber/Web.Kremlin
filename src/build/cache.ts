@@ -61,7 +61,7 @@ namespace BuildCache {
 class OutputCache {
     hashes = new Map<string, string>()
 
-    update(fn: string, content: string) {
+    update(fn: string, content: string | Uint8Array) {
         var h = this.hash(content);
         if (this.hashes.get(fn) !== h) {
             this.hashes.set(fn, h);
@@ -70,7 +70,7 @@ class OutputCache {
         else return false;
     }
 
-    hash(content: string) {
+    hash(content: string | Uint8Array) {
         return crypto.createHash('sha256').update(content).digest('base64');
     }
 }

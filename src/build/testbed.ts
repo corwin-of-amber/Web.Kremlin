@@ -6,6 +6,7 @@ import { ModuleDepNavigator } from './ui/introspect';
 import { ProjectDefinition, resolve } from '../project';
 import { Builder } from '.';
 import { ReportToConsole } from './ui/report';
+import { Environment } from './environment';
 
 
 
@@ -27,26 +28,32 @@ function testbed() {
         'tests/import-export': {
             wd: 'tests/import-export',
             main: 'index.js'
+        },
+        'tests/css-deps': {
+            wd: 'tests/css-deps',
+            main: 'index.js'
         }
     };
 
-    var proj = ProjectDefinition.normalize(projects['tests/import-export']);
+    var proj = ProjectDefinition.normalize(projects['tests/css-deps']);
 
     var targets = [].concat(...proj.main.map(t => t.input));
 
     var deploy = new Deployment(resolve(proj, proj.buildDir)).in(env);
 
-    ac.collect(targets);
-    for (let m of ac.modules.visited.values()) {
-        //console.log(m);
-        deploy.addVisitResult(m);
-    }
+    Environment.runIn(env, () => {
+        ac.collect(targets);
+        for (let m of ac.modules.visited.values()) {
+            //console.log(m);
+            deploy.addVisitResult(m);
+        }
 
-    for (let m of ac.modules.visited.values()) {
-        if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
-    }
+        for (let m of ac.modules.visited.values()) {
+            if (!m.compiled) console.log("%cshim", 'color: red', m.origin);
+        }
 
-    deploy.wrapUp(proj.main);
+        deploy.wrapUp(proj.main);
+    });
 
     /*
     var nav = new ModuleDepNavigator(proj, ac);

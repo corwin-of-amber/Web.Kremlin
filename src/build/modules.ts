@@ -104,6 +104,19 @@ class TransientCode extends ModuleRef {
     get canonicalName(): string { throw new Error('Internal error: TransientCode#canonicalName'); }
 }
 
+class BinaryAsset extends ModuleRef {
+    contentType: string
+    content: Uint8Array
+    filename?: string /* suggested name */
+    constructor(content: Uint8Array, contentType: string, filename?: string) {
+        super();
+        this.contentType = contentType;
+        this.content = content;
+        this.filename = filename;
+    }
+    get canonicalName(): string { throw new Error('Internal error: BinaryAsset#canonicalName'); }
+}
+
 class GroupedModules extends ModuleRef {
     main: ModuleRef
     constructor(main: ModuleRef, companions: {[name: string]: ModuleRef}) {
@@ -171,6 +184,6 @@ class MainFileNotFound extends ModuleResolutionError {
 
 
 
-export { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
-         NodeModule, ShimModule, StubModule, ModuleDependency,
+export { ModuleRef, SourceFile, PackageDir, TransientCode, BinaryAsset,
+         GroupedModules, NodeModule, ShimModule, StubModule, ModuleDependency,
          ModuleResolutionError, FileNotFound, MainFileNotFound }

@@ -5,7 +5,7 @@ import { UserDefinedProjectOptions,
          UserDefinedOverrides, UserDefinedAssets } from './configuration';
 import { AcornCrawl, SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
-import { DummyCompiler } from './transpile';
+import { AssetBundler, DummyCompiler } from './transpile';
 import { DevAdjustments, ProdAdjustments } from './adjustments';
 import { TypeScriptCompiler } from './addons/addon-typescript';
 import { VueCompiler } from './addons/addon-vue';
@@ -123,6 +123,7 @@ class Builder {
         env.compilers = [new TypeScriptCompiler(),
                          new VueCompiler(),
                          new LiveScriptCompiler(),
+                         new AssetBundler(),
                          new DummyCompiler(new SearchPath(['build'], []))];
         return env;
     }

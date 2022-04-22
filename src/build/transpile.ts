@@ -1,6 +1,7 @@
+import fs from 'fs';
 import path from 'path';
 
-import { ModuleRef } from './modules';
+import { ModuleRef, BinaryAsset } from './modules';
 import { SearchPath } from './bundle';
 
 
@@ -11,6 +12,22 @@ interface Transpiler {
     compileSource(source: string, filename?: string): ModuleRef;
 }
 
+
+/**
+ * Links to resource assets (images, fonts, etc.).
+ */
+class AssetBundler implements Transpiler {
+
+    match(filename: string): boolean { return !!filename.match(/[.]png$/); }
+
+    compileFile(filename: string): ModuleRef {
+        return new BinaryAsset(fs.readFileSync(filename), 'bin', filename);
+    }
+
+    compileSource(source: string, filename?: string): ModuleRef {
+        throw new Error('Method not implemented.');
+    }
+}
 
 /**
  * Uses precompiled artifacts instead of compiling on-the-fly.
@@ -68,4 +85,4 @@ class DummyCompiler implements Transpiler {
 
 
 
-export { Transpiler, DummyCompiler }
+export { Transpiler, AssetBundler, DummyCompiler }
