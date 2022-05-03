@@ -17,8 +17,13 @@ interface Transpiler {
  * Links to resource assets (images, fonts, etc.).
  */
 class AssetBundler implements Transpiler {
+    extensions = ['png', 'jpg', 'svg', 'ttf', 'woff', 'woff2', 'otf']
+    _re?: RegExp = undefined
 
-    match(filename: string): boolean { return !!filename.match(/[.]png$/); }
+    match(filename: string): boolean {
+        this._re ??= new RegExp(`[.](${this.extensions.join('|')})`);
+        return !!filename.match(this._re);
+    }
 
     compileFile(filename: string): ModuleRef {
         return new BinaryAsset(fs.readFileSync(filename), 'application/octet-stream', filename);
