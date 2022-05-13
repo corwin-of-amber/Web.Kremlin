@@ -51,7 +51,8 @@ class Deployment extends InEnvironment {
     outDir: string
     files: Set<string> = new CaseInsensitiveSet
     modules: {dmod: DeployModule, outputs: Output[]}[] = []
-    include: Output[]
+    include: Output
+    bundle: {js?: Output, css?: Output} = {}
 
     constructor(outDir: string) { super(); this.outDir = outDir; }
 
@@ -62,7 +63,8 @@ class Deployment extends InEnvironment {
     }
 
     addVisitResult(vis: VisitResult) {
-        this.add(new DeployModule(vis.origin.normalize(), vis.compiled, vis.deps));
+        this.add(new DeployModule(vis.origin.normalize(),
+                                  vis.compiled, vis.deps));
     }
 
     addAsset(asset: SourceFile) {
@@ -74,7 +76,7 @@ class Deployment extends InEnvironment {
         var cwd = typeof __dirname !== 'undefined' ? __dirname : '.',
             ref = new SourceFile(findUp.sync(fn, {cwd}), null, 'js'),
             ptm = PassThroughModule.fromSourceFile(ref);
-        this.include = this.write(new DeployModule(ref, ptm, []));
+        this.include = this._single(this.write(new DeployModule(ref, ptm, [])));
     }
 
     newFilename(filename: string, contentType: string) {
@@ -114,7 +116,7 @@ class Deployment extends InEnvironment {
         for (let i = 0; i < targets.length; i++) {
             this.writeFileSync(output[i].filename, targets[i].body(), targets[i].contentType);
         }
-        return dmod.output ?? [];
+        return dmod.output;
     }
 
     writeFileSync(filepath: string, content: string | Uint8Array, contentType?: string) {
@@ -144,10 +146,15 @@ class Deployment extends InEnvironment {
     _adjustDeps(dmod: DeployModule) {
         for (let dep of dmod.deps ?? []) {
             for (let other of this.modules) {
-                if (dep.target === other.dmod.ref)
-                    dep.deployed = other.outputs.map(out => path.basename(out.filename));
+                if (dep.target.id === other.dmod.ref.id)
+                    dep.deployed = other.dmod.output.map(out => path.basename(out.filename));
             }
         }
+    }
+
+    _single<T>(a: T[]) {
+        assert(a.length === 1);
+        return a[0];
     }
 
     /**
@@ -160,10 +167,13 @@ class Deployment extends InEnvironment {
             deps = new ConcatenatedJSPostprocessor(this, cjs, []).getDeps(),
             out = this.writeOutput(outputFilename, cjs.process(outputFilename, deps), 'js');
 
+        this.bundle.js = out;
+        /*
         for (let m of this.modules) {
             if (m.outputs.some(e => e.contentType === 'js'))
-                m.outputs = [out]; /** @todo mixed types? */
+                m.outputs = [out]; /** @todo mixed types? *
         }
+        */
     }
 
     wrapUp(entries: {input: ModuleRef[], output: string}[]) {
@@ -238,16 +248,34 @@ class Postprocessor<CU extends CompilationUnit, R> {
     }
 
     getDeps(): ModuleDependency[] {
-        var pre = this.deploy.include ? [{
-                source: undefined, target: undefined, 
-                compiled: this.deploy.include
-            }] : [],
-            load = this.deploy.modules.map(m => ({
-                source: this.referenceOf(m.dmod), target: m.dmod.ref,
-                compiled: m.outputs
-            }));
-        return pre.concat(load);
-    }    
+        return [
+            this.incDep(this.deploy.include),
+            ...this.mkDeps_(this.deploy.modules)
+        ].filter(x => x);
+    }
+
+    incDep(output: Output) {
+        return output && {
+            source: undefined, target: undefined,
+            compiled: [output]
+        };
+    }
+
+    mkDeps_(ms: {dmod: DeployModule, outputs: Output[]}[]) {
+        return ms.map(({dmod, outputs}) => this.mkDep(dmod, outputs));
+    }
+
+    mkDeps(dmods: DeployModule[]) {
+        return dmods.filter(x => x).map(dmod => this.mkDep(dmod));
+    }
+
+    mkDep(dmod: DeployModule, outputs?: Output[]): ModuleDependency {
+        return {
+            source: this.referenceOf(dmod),
+            target: dmod.ref,
+            compiled: dmod.output ?? outputs  /** @todo need `outputs`? */
+        }
+    }
 
     referenceOf(ref: DeployModule): R { return undefined; }
 }
@@ -265,7 +293,26 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
         this.scripts = unit.getRefTags();
     }
 
+    getDeps(): ModuleDependency[] {
+        return this.deploy.bundle.js ?
+            [
+                this.incDep(this.deploy.include),
+                this.incDep(this.deploy.bundle.js),
+                ...this.mkDeps_(this.deploy.modules).map(d => this.woJs(d))
+            ].filter(x => x) : super.getDeps();
+    }
+
+    /**
+     * Omits JS outputs from dependencies; used when JS compilation
+     * units have been bundled.
+     */
+    woJs(d: ModuleDependency) {
+        let isJs = (mod: any) => mod.contentType === 'js';
+        return {...d, compiled: d.compiled?.filter(x => !isJs(x))};
+    }
+
     referenceOf(m: DeployModule): HtmlRef {
+        /** @todo this is too brittle */
         var cn = m.ref.canonicalName,
             lu = this.scripts.find(({path}) => cn.endsWith(path));
         return lu && lu.tag;

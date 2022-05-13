@@ -52,23 +52,20 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
         if (!this.scripts) this.extractScripts();
 
         var entries = this.scripts.map(u => {
-            var dep = deps.find(d => d.source === u);
-            return dep && {tag: u, ref: dep.target};
-        }).filter(x => x);
-
-        var tags = [].concat(...[...this._uniqCUs(deps)].map(([d, c]) =>
-            this.makeIncludeTag(c, d.target))
-        ).join('\n');
+                var dep = deps.find(d => d.source === u);
+                return dep && {tag: u, ref: dep.target};
+            }).filter(x => x),
+            includes = [...this.makeIncludeTags(deps)].join('\n');
 
         var text = this.text;
         if (entries.length > 0) {
             text =  TextSource.interpolate(text, entries.map((e, i) => {
                 var k = this.processScript(e.tag, e.ref);
-                if (i == 0) k.text = tags + '\n' + k.text;
+                if (i == 0) k.text = includes + '\n' + k.text;
                 return k;
             }));
         }
-        else text += '\n' + tags;
+        else text += '\n' + includes;
 
         return this.postprocess(text);
     }
@@ -79,13 +76,10 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
         return {text: this.makeInitScript(ref), ...at};
     }
 
-    *_uniqCUs(deps: ModuleDependency[]): Generator<[ModuleDependency, ModuleRef]> {
-        // Remove duplicates (these can occur if some modules are bundled)
-        var seen = new Set<string>();
-        for (let d of deps)
-            for (let c of d.compiled)
-                if (!seen.has(c.canonicalName)) 
-                    { seen.add(c.canonicalName); yield [d, c]; }
+    *makeIncludeTags(deps: ModuleDependency[]) {
+        for (let [cu, d] of this._uniqCUs(deps)) {
+            yield this.makeIncludeTag(cu, d.target);
+        }
     }
 
     makeIncludeTag(m: ModuleRef, origin: ModuleRef) {
@@ -129,6 +123,18 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
 
     _rel(filename: string) {
         return this.outDir ? path.relative(this.outDir, filename) : filename;
+    }
+
+    /**
+     * Remove duplicates; these may occur if some modules are coalesced.
+     * (currently, this does not occur)
+     */
+     *_uniqCUs(deps: ModuleDependency[]): Generator<[ModuleRef, ModuleDependency]> {
+        var seen = new Set<string>();
+        for (let d of deps)
+            for (let cu of d.compiled)
+                if (!seen.has(cu.canonicalName)) 
+                    { seen.add(cu.canonicalName); yield [cu, d]; }
     }
 
     static fromSourceFile(m: SourceFile) {
