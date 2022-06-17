@@ -23,6 +23,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     imports: (AcornTypes.ImportDeclaration | AcornTypes.ImportExpression)[]
     requires: RequireInvocation[]
     exports: AcornTypes.ExportDeclaration[]
+    sourcemap?: SourceMapping
 
     vars: {
         globals: Map<string, AcornTypes.Identifier[]>
@@ -40,29 +41,40 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         var parsed = this.parse(text);
         this.ast = parsed.ast;
         this.directives = parsed.directives;
+        this.sourcemap = parsed.sourcemap;
         this.isLoose = parsed.isLoose;
     }
 
     parse(text: string) {
         var opts: acorn.Options = {
                 ...this.acornOptions,
-                onComment: (isBlock, text, start, end) => 
-                    directives.push(...this.parseDirectives(text, {start, end}))
+                onComment: (isBlock, text, start, end) => {
+                    directives.push(...this.parseDirectives(text, {start, end}));
+                    if (!isBlock)
+                        sourcemap ??= this.parseSourceMapping(text, {start, end});
+                }
             },
-            directives: ProcessingDirective[] = [];
+            directives: ProcessingDirective[] = [],
+            sourcemap: SourceMapping = undefined;
 
         try { var ast = acorn.parse(text, opts), isLoose = false; }
         catch (e) {
             ast = acornLoose.parse(text, opts);
             isLoose = true;
         }
-        return {ast, directives, isLoose};
+        return {ast, directives, sourcemap, isLoose};
     }
 
     parseDirectives(text: string, at: {start: number, end: number}): ProcessingDirective[] {
         var mo = text.match(/@kremlin[. ](\w+)(:?\((.*?)\))?/);
         if (mo) return [{name: mo[1], arguments: mo[2] && mo[2].split(','), at}]
         else return [];
+    }
+
+    parseSourceMapping(text: string, at: {start: number, end: number}): SourceMapping {
+        var mo = text.match(/^# sourceMappingURL=(.*)/);
+        if (mo) return {url: mo[1], isEmbed: mo[1].startsWith('data:'), at};
+        else return undefined;
     }
 
     extractImports() {
@@ -184,10 +196,11 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 var dep = deps.find(d => d.source === exp);  // for `export .. from`
                 return this.processExport(exp, dep && dep.target);
             }),
+            sourcemap = this.sourcemap ? this.processSourceMap(this.sourcemap) : [],
             metas = this.metas.map(mp => [[mp, '__todo_metavar']]),
 
             prog = TextSource.interpolate(this.text, 
-                [].concat(...imports, ...requires, ...exports, ...metas)
+                [].concat(...imports, ...requires, ...exports, sourcemap, ...metas)
                 .map(([node, text]) => ({...node, text})));
 
         prog = this.postprocess(prog);
@@ -195,13 +208,14 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         return `kremlin.m['${key}'] = function(module,exports,global) {${prog}};`;
     }
 
-    processImport(imp: AcornTypes.ImportDeclaration | AcornTypes.ImportExpression, ref: ModuleRef) {
+    processImport(imp: AcornTypes.ImportDeclaration | AcornTypes.ImportExpression, ref: ModuleRef):
+            Subst<AcornTypes.ImportDeclaration | AcornTypes.ImportExpression | AcornTypes.Identifier>[] {
         return AcornUtils.is(imp, 'ImportDeclaration') ?
             this.processImportStmt(imp, ref) : this.processImportExpr(imp, ref);
     }
 
-    processImportStmt(imp: AcornTypes.ImportDeclaration, ref: ModuleRef) {
-        var lhs: string, refs = [], isDefault = false;
+    processImportStmt(imp: AcornTypes.ImportDeclaration, ref: ModuleRef): Subst<AcornTypes.ImportDeclaration | AcornTypes.Identifier>[] {
+        var lhs: string, refs: Subst<AcornTypes.Identifier>[] = [], isDefault = false;
         if (imp.specifiers.length == 1 && 
             (imp.specifiers[0].type === 'ImportDefaultSpecifier'
              || imp.specifiers[0].type === 'ImportNamespaceSpecifier')) {
@@ -217,21 +231,22 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 refs.push(...this.updateReferences(local, `${lhs}.${imported}`));
             }
         }
-        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`]]
+        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`] as Subst<AcornTypes.ImportDeclaration | AcornTypes.Identifier>]
                .concat(refs);
     }
 
-    processImportExpr(imp: AcornTypes.ImportExpression, ref: ModuleRef) {
+    processImportExpr(imp: AcornTypes.ImportExpression, ref: ModuleRef): Subst<AcornTypes.ImportExpression>[] {
         var isDefault = true; /** @todo */
         return [[imp, this.makeImportAsync(ref, isDefault)]];
     }
 
-    processRequire(req: RequireInvocation, ref: ModuleRef) {
+    processRequire(req: RequireInvocation, ref: ModuleRef): Subst<RequireInvocation>[] {
         return [[req, this.makeRequire(ref)]];
     }
 
-    processExport(exp: AcornTypes.ExportDeclaration, ref: ModuleRef) {
-        var locals = [], rhs: string, is = AcornUtils.is, d = exp.declaration;
+    processExport(exp: AcornTypes.ExportDeclaration, ref: ModuleRef): Subst<Loc>[] {
+        var locals: string[] = [], rhs: string,
+            is = AcornUtils.is, d = exp.declaration;
 
         if (is(exp, 'ExportNamedDeclaration')) {
             if (d) {  // <- `export const` etc.
@@ -246,6 +261,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 for (let expspec of exp.specifiers) {
                     assert(expspec.type === 'ExportSpecifier');
                     let local = expspec.local.name, exported = expspec.exported.name;
+                    /** @todo check if `local` is an imported identifier */
                     locals.push((local == exported) ? local : `${exported}:${local}`);
                 }
             }
@@ -256,7 +272,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
             if (d)
                 return [[{start: exp.start, end: d.start}, ''],  // <- remove `export` modifier
-                    [{start: exp.end, end:exp.end}, `\nkremlin.export(module, ${rhs});`]];
+                    [{start: exp.end, end: exp.end}, `\nkremlin.export(module, ${rhs});`]];
             else
                 return [[exp, `kremlin.export(module, ${rhs});`]];
         }
@@ -276,6 +292,12 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         else throw new Error(`invalid export '${exp.type}'`);
     }
 
+    processSourceMap(sourcemap: SourceMapping): Subst<Loc>[] {
+        // currently, omit linked sourcemaps. keep embedded ones.
+        /** @todo handle linked sourcemaps as asset deps. */
+        return sourcemap.isEmbed ? [] : [[sourcemap.at, '']];
+    }
+
     makeRequire(ref: ModuleRef, isDefault: boolean = false) {
         if (ref instanceof NodeModule) {
             return `require('${ref.name}')`;  /** @todo configure by target  */
@@ -292,8 +314,8 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         return `kremlin.import('${key}', ${isDefault})`;
     }
 
-    updateReferences(name: string, expr: string) {
-        var refs = [];
+    updateReferences(name: string, expr: string): Subst<AcornTypes.Identifier>[] {
+        var refs: Subst<AcornTypes.Identifier>[] = [];
         for (let refnode of this.vars.globals.get(name) || []) {
             var colon = this._isShorthandProperty(refnode);
             refs.push([refnode, 
@@ -340,6 +362,15 @@ type ProcessingDirective = {
     at: {start: number, end: number}
 };
 
+type SourceMapping = {
+    at: {start: number, end: number}
+    url?: string
+    isEmbed: boolean
+};
+
+type Loc = {start: number, end: number};
+
+type Subst<T extends Loc = Loc> = [T, string]
 
 
 declare class RequireInvocation extends AcornTypes.CallExpression {
