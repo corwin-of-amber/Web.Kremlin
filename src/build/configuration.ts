@@ -2,7 +2,8 @@ import fs from 'fs'       /** @kremlin.native */
 import path from 'path';  /** @kremlin.native */
 import type { ProjectDefinition } from '../project';
 import { Environment, Library } from './environment';
-import { SourceFile, PackageDir, ShimModule, StubModule, NodeModule } from './modules';
+import { SourceFile, PackageDir, ShimModule, StubModule, NodeModule,
+         ModuleResolutionError } from './modules';
 
 
 class UserDefinedProjectOptions {
@@ -47,7 +48,7 @@ class UserDefinedOverrides extends Library {
                 this.modules.push(typeof sub === 'string'
                     ? new ShimModule(name, this.locateSubstitute(pd, sub))
                     : (sub === true) ? new NodeModule(name)
-                                     : new StubModule(name, null));
+                                     : new StubModule(name, new ModuleElided(this, pd)));
             }
         }
     }
@@ -93,4 +94,13 @@ class UserDefinedAssets {
 }
 
 
-export { UserDefinedProjectOptions, UserDefinedOverrides, UserDefinedAssets }
+/** 
+ * Not an error per se, but a placeholder used for the `reason` in `StubModule`s.
+ */
+class ModuleElided extends ModuleResolutionError { 
+    constructor(public by: UserDefinedOverrides, public at: PackageDir) { super(); }
+}
+
+
+export { UserDefinedProjectOptions, UserDefinedOverrides, UserDefinedAssets,
+         ModuleElided }

@@ -42,6 +42,10 @@ class PostCSSModule extends InEnvironment implements CompilationUnit {
         });
     }
 
+    get localUrls() {
+        return this.urls.filter(u => PostCSSModule.isLocalDependency(u.url));
+    }
+
     _strip(url: string) {
         var mo = url.match(/^"(.*)"$/) ?? url.match(/^'(.*)'$/);
         return mo ? mo[1] : url;
@@ -49,6 +53,10 @@ class PostCSSModule extends InEnvironment implements CompilationUnit {
 
     static fromSourceFile(m: SourceFile) {
         return new this(m.readSync(), path.dirname(m.filename));
+    }
+
+    static isLocalDependency(url: string) { 
+        return !url.match(/^((https?|data):|[/])/);
     }
 }
 

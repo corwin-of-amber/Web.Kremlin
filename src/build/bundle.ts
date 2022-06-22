@@ -225,8 +225,7 @@ class AcornCrawl extends InEnvironment {
         var mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
 
         m.extractUrls();
-        /** @todo get only relative URIs */
-        var deps = m.urls.map(loc => mkdep(loc, lookup(loc.url)));
+        var deps = m.localUrls.map(loc => mkdep(loc, lookup(loc.url)));
         return {compiled: m, deps};
     }
 
