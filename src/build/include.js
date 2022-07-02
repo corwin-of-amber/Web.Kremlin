@@ -27,7 +27,9 @@ var kremlin = {m: {}, loaded: {}, debug: false,
     export(m, d, names) {
         m.exports = m.exports || {};
         if (names)
-            for (let nm of names) m.exports[nm] = d[nm]
+            for (let nm of names)
+                if (Array.isArray(nm)) m.exports[nm[0]] = d[nm[1]]
+                else                   m.exports[nm] = d[nm]
         else
             m.exports = Object.assign(m.exports, d);
     },

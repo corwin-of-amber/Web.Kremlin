@@ -245,34 +245,39 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     }
 
     processExport(exp: AcornTypes.ExportDeclaration, ref: ModuleRef): Subst<Loc>[] {
-        var locals: string[] = [], rhs: string,
+        var locals: (string | [string, string])[] = [], rhs: string,
             is = AcornUtils.is, d = exp.declaration;
 
         if (is(exp, 'ExportNamedDeclaration')) {
+            let isExportFrom = exp.source && ref;   // <- `export .. from`
             if (d) {  // <- `export const` etc.
-                if (AcornUtils.is(d, 'FunctionDeclaration'))
+                if (AcornUtils.is(d, 'FunctionDeclaration') ||
+                    AcornUtils.is(d, 'ClassDeclaration'))
                     locals = [d.id.name];
                 else if (AcornUtils.is(d, 'VariableDeclaration'))
                     locals = d.declarations.map(u => u.id.name);
-                else
+                else {
+                    console.warn('unrecognized declaration in `export`:', d);
                     locals = [];  /** @todo */
+                }
             }
             else {
                 for (let expspec of exp.specifiers) {
                     assert(expspec.type === 'ExportSpecifier');
                     let local = expspec.local.name, exported = expspec.exported.name;
                     /** @todo check if `local` is an imported identifier */
-                    locals.push((local == exported) ? local : `${exported}:${local}`);
+                    locals.push((local == exported) ? local :
+                        isExportFrom ? [exported, local] : `${exported}:${local}`);
                 }
             }
 
-            rhs = (exp.source && ref)   // <- `export .. from`
+            rhs = isExportFrom
                     ? `${this.makeRequire(ref)}, ${JSON.stringify(locals)}`
                     : `{${locals}}`;
 
             if (d)
                 return [[{start: exp.start, end: d.start}, ''],  // <- remove `export` modifier
-                    [{start: exp.end, end: exp.end}, `\nkremlin.export(module, ${rhs});`]];
+                        [{start: exp.end, end: exp.end}, `\nkremlin.export(module, ${rhs});`]];
             else
                 return [[exp, `kremlin.export(module, ${rhs});`]];
         }
@@ -449,6 +454,13 @@ declare namespace AcornTypes {
         body: acorn.Node
     }
 
+    class ClassDeclaration extends acorn.Node {
+        id: Identifier
+        superClass: any
+        body: acorn.Node
+        locals: object
+    }
+
     class CallExpression extends acorn.Node {
         type: "CallExpression"
         callee: acorn.Node
@@ -488,6 +500,7 @@ namespace AcornUtils {
     export function is(node: acorn.Node, type: "VariableDeclaration"): node is AcornTypes.VariableDeclaration
     export function is(node: acorn.Node, type: "VariableDeclarator"): node is AcornTypes.VariableDeclarator
     export function is(node: acorn.Node, type: "FunctionDeclaration"): node is AcornTypes.FunctionDeclaration
+    export function is(node: acorn.Node, type: "ClassDeclaration"): node is AcornTypes.ClassDeclaration
     export function is(node: acorn.Node, type: "Identifier"): node is AcornTypes.Identifier
     export function is(node: acorn.Node, type: "Property"): node is AcornTypes.Property
     export function is(node: acorn.Node, type: "MetaProperty"): node is AcornTypes.MetaProperty
