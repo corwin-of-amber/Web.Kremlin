@@ -259,6 +259,8 @@ class AcornCrawl extends InEnvironment {
             case 'js':
                 return this.visitJS(
                     new AcornJSModule(ref.content).in(this.env), opts);
+            case 'css':
+                return this.visitCSS(new PostCSSModule(ref.content), opts);
             default:
                 /** @oops all non-JS functionality is essentially duplicated here */
                 var fn = path.join(opts.basedir || '.',

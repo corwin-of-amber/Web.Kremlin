@@ -7,11 +7,13 @@ import { AcornCrawl, SearchPath, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { AssetBundler, DummyCompiler } from './transpile';
 import { DevAdjustments, ProdAdjustments } from './adjustments';
+import { ProjectDefinition, ProjectDefinitionNorm, resolve } from '../project';
+import { Report } from './ui/report';
+
 import { TypeScriptCompiler } from './addons/addon-typescript';
 import { VueCompiler } from './addons/addon-vue';
 import { LiveScriptCompiler } from './addons/addon-livescript';
-import { ProjectDefinition, ProjectDefinitionNorm, resolve } from '../project';
-import { Report } from './ui/report';
+import { SASSCompiler } from './addons/addon-sass';
 
 
 
@@ -123,6 +125,7 @@ class Builder {
         env.compilers = [new TypeScriptCompiler(),
                          new VueCompiler(),
                          new LiveScriptCompiler(),
+                         new SASSCompiler(),
                          new AssetBundler(),
                          new DummyCompiler(new SearchPath(['build'], []))];
         return env;
