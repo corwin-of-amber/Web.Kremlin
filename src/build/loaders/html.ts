@@ -85,9 +85,9 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     makeIncludeTag(m: ModuleRef, origin: ModuleRef) {
         if (m instanceof SourceFile) {
             switch (m.contentType) {
-            case 'js': return this.makeScriptTag(m);
+            case 'js':  return this.makeScriptTag(m);
             case 'css': return this.makeStylesheetLinkTag(m) + this.makeScriptStub(origin);
-            default: return '';
+            default:    return this.makeScriptStub(origin, this._urlOf(m));
             }
         }
         else throw new Error(`invalid html reference to '${m.constructor.name}'`);
@@ -102,8 +102,8 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
                 m.contentType || 'css'}">`;
     }
 
-    makeScriptStub(ref: ModuleRef) {
-        return `<script>kremlin.m['${ref.canonicalName}'] = () => ({});</script>`;
+    makeScriptStub(ref: ModuleRef, content: any = {}) {
+        return `<script>kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };</script>`;
     }
 
     makeInitScript(ref: ModuleRef) {
