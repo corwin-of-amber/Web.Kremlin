@@ -358,7 +358,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     /** @todo should probably be configurable somehow? */
     static DEFAULT_ACORN_OPTIONS: acorn.Options =
-        {sourceType: 'module', ecmaVersion: 2020, allowHashBang: true};
+        {sourceType: 'module', ecmaVersion: 2022, allowHashBang: true};
 }
 
 type ProcessingDirective = {

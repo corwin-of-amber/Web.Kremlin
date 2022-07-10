@@ -3,4 +3,4 @@
 	url = git@github.com:LongTengDao-fork-B/acorn-globals.git
 [submodule "packages/acorn-globals"]
 	path = packages/acorn-globals
-	url = git@github.com:LongTengDao-fork-B/acorn-globals.git
+	url = git@github.com:corwin-of-amber/acorn-globals.git
