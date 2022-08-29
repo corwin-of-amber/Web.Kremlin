@@ -4,7 +4,7 @@ import * as parse5 from 'parse5';
 import parse5Walk from 'walk-parse5'
 
 import { Environment, InEnvironment } from '../environment';
-import type { CompilationUnit } from '../bundle';
+import type { CompilationUnit } from '../compilation-unit';
 import { TextSource } from '../bundle';
 import { SourceFile, ModuleRef, ModuleDependency } from '../modules';
 

@@ -149,9 +149,10 @@ class ShimModule extends ModuleRef {
 
 class StubModule extends ModuleRef {
     name: string
+    context: string
     reason: ModuleResolutionError
-    constructor(name: string, reason: ModuleResolutionError)
-    { super(); this.name = name; this.reason = reason; }
+    constructor(name: string, context: string, reason: ModuleResolutionError)
+    { super(); this.name = name; this.context = context; this.reason = reason; }
     get id() { return JSON.stringify([this.constructor.name, this.name]); };
     get canonicalName() { return `stub://${this.name}`; }
 }
@@ -161,6 +162,7 @@ type ModuleDependency<T = any> =
 
 
 class ModuleResolutionError { }
+interface ModuleResolutionError { repr?: string }
 
 class FileNotFound extends ModuleResolutionError {
     path: string

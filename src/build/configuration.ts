@@ -48,7 +48,7 @@ class UserDefinedOverrides extends Library {
                 this.modules.push(typeof sub === 'string'
                     ? new ShimModule(name, this.locateSubstitute(pd, sub))
                     : (sub === true) ? new NodeModule(name)
-                                     : new StubModule(name, new ModuleElided(this, pd)));
+                                     : new StubModule(name, 'js', new ModuleElided(this, pd)));
             }
         }
     }
@@ -99,6 +99,7 @@ class UserDefinedAssets {
  */
 class ModuleElided extends ModuleResolutionError { 
     constructor(public by: UserDefinedOverrides, public at: PackageDir) { super(); }
+    get repr() { return '{ excluded by user }'; }
 }
 
 

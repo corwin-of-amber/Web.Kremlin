@@ -1,5 +1,6 @@
 import { Environment } from '../environment';
-import { ModuleRef, SourceFile } from '../modules';
+import { ModuleRef, SourceFile, StubModule } from '../modules';
+import { CompilationUnit, CompilationUnitStub } from '../compilation-unit';
 
 
 interface Report {
@@ -7,6 +8,7 @@ interface Report {
     error(ref: ModuleRef, err: any): void
     warn(ref: ModuleRef, msg: any): void
     deploy(outFilename: string): void
+    summary(ref: ModuleRef, cu?: CompilationUnit): void
     status: Status
 }
 
@@ -23,6 +25,7 @@ class ReportSilent implements Report {
     error(ref: ModuleRef, err: any) { this.status = Status.ERROR; }
     warn(ref: ModuleRef, msg: any) {  }
     deploy(outFilename: string) { }
+    summary(ref: ModuleRef, cu?: CompilationUnit) { }
     status: Status = Status.OK
 }
 
@@ -62,6 +65,20 @@ class ReportToConsole implements Report {
 
     deploy(outFilename: string) {
         this.console.log(`%c> ${outFilename}`, "color: #ff8080");
+    }
+
+    /**
+     * Report external and missing modules
+     * @param ref original module reference
+     * @param cu compiled module (if any)
+     */
+    summary(ref: ModuleRef, cu?: CompilationUnit) {
+        if (!cu)
+            console.log("%c[external]", 'color: red', ref);
+        else if (cu instanceof CompilationUnitStub)
+            console.log("%c[skipped]", 'color: red', ...(
+                ref instanceof StubModule ?
+                    [ref.name, ref.reason.repr ?? ref.reason] : [ref]));
     }
 }
 

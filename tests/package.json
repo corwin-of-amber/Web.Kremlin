@@ -1,0 +1,7 @@
+{
+    "name": "kremlin-test-cases",
+    "browser": {
+        "mass-confusion": true,
+        "elided": {}
+    }
+}

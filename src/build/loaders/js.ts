@@ -6,9 +6,10 @@ import * as acornLoose from 'acorn-loose';
 import * as acornWalk from 'acorn-walk';
 import acornGlobals from 'acorn-globals';
 
-import { CompilationUnit, TextSource } from '../bundle';
+import { TextSource } from '../bundle';
 import { InEnvironment } from '../environment';
 import { ModuleRef, SourceFile, NodeModule, ModuleDependency } from '../modules';
+import { CompilationUnit, CompilationUnitStub } from '../compilation-unit';
 
 
 class AcornJSModule extends InEnvironment implements CompilationUnit {
@@ -510,4 +511,13 @@ namespace AcornUtils {
 }
 
 
-export { AcornJSModule }
+class StubJSModule extends CompilationUnitStub {
+    contentType: 'js' = 'js'
+
+    process(key: string, deps: ModuleDependency<any>[]): string | Uint8Array {
+        return `kremlin.m['${key}'] = function(module,exports,global) {};`;
+    }
+}
+
+
+export { AcornJSModule, StubJSModule }

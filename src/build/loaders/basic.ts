@@ -1,5 +1,5 @@
 import { InEnvironment } from '../environment';
-import type { CompilationUnit } from '../bundle';
+import type { CompilationUnit } from '../compilation-unit';
 import type { AcornJSModule } from './js';
 import { SourceFile, TransientCode, ModuleDependency } from '../modules';
 

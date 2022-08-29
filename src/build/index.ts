@@ -104,8 +104,9 @@ class Builder {
 
         deploy.wrapUp(this.proj.main);
 
+        /* Summary: report external and missing modules */
         for (let m of modules.values()) {
-            if (!m.compiled) console.log("%c[external]", 'color: red', m.origin);
+            this.env.report.summary(m.origin, m.compiled);
         }
     }
 

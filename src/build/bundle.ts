@@ -7,8 +7,9 @@ import { Environment, InEnvironment } from './environment';
 import { ModuleRef, SourceFile, PackageDir, TransientCode, GroupedModules,
          NodeModule,
          StubModule, ModuleDependency, FileNotFound, BinaryAsset } from './modules';
+import { CompilationUnit } from './compilation-unit';
 import { PassThroughModule, JsonModule } from './loaders/basic';
-import { AcornJSModule } from './loaders/js';
+import { AcornJSModule, StubJSModule } from './loaders/js';
 import { HtmlModule } from './loaders/html';
 import { PostCSSModule } from './loaders/css';
 
@@ -129,13 +130,13 @@ class AcornCrawl extends InEnvironment {
         return this.env.cache.build.memo(m, 'visit', op);
     }
 
-    safely(ref: ModuleRef, name: string, f: () => VisitResult): VisitResult {
+    safely(ref: ModuleRef, name: string, context: string, f: () => VisitResult): VisitResult {
         try {
             return f();
         }
         catch (e) {
             this.env.report.error(ref, e);
-            return this.visitLeaf(new StubModule(name, e)); 
+            return this.visitLeaf(new StubModule(name, context, e)); 
         }
     }
 
@@ -190,7 +191,7 @@ class AcornCrawl extends InEnvironment {
             }
             catch (e) {
                 return this.modules.intrinsic.get(src) 
-                       || new StubModule(src, e);
+                       || new StubModule(src, 'js', e);
             }
         };
         var mkdep = (u: acorn.Node, target: ModuleRef) => ({source: u, target});
@@ -207,7 +208,7 @@ class AcornCrawl extends InEnvironment {
 
         var lookup = (src: string) => {
             try       { return sp.lookup(src); }
-            catch (e) { return new StubModule(src, e); }
+            catch (e) { return new StubModule(src, 'html', e); }
         };
         var mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
 
@@ -220,7 +221,7 @@ class AcornCrawl extends InEnvironment {
 
         var lookup = (src: string) => {
             try       { return sp.lookup(src); }
-            catch (e) { return new StubModule(src, e); }
+            catch (e) { return new StubModule(src, 'css', e); }
         };
         var mkdep = <T>(u: T, target: ModuleRef) => ({source: u, target});
 
@@ -242,7 +243,7 @@ class AcornCrawl extends InEnvironment {
 
     visitSourceFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         this.env.report.visit(ref);
-        return {...this.safely(ref, ref.filename, () => this.visitFile(ref, opts)),
+        return {...this.safely(ref, '?', ref.filename, () => this.visitFile(ref, opts)),
                 origin: ref};
     }
 
@@ -250,11 +251,13 @@ class AcornCrawl extends InEnvironment {
         try {
             return this.visitModuleRef(ref.getMain(), opts);
         }
-        catch (e) { return this.visitLeaf(new StubModule(ref.canonicalName, e)); }
+        catch (e) {
+            return this.visitLeaf(new StubModule(ref.canonicalName, 'js', e));
+        }
     }
 
     visitTransientCode(ref: TransientCode, opts: VisitOptions = {}): VisitResult {
-        return this.safely(ref, '<transient>', () => {
+        return this.safely(ref, '<transient>', ref.contentType, () => {
         switch (ref.contentType) {
             case 'js':
                 return this.visitJS(
@@ -286,21 +289,15 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitLeaf(ref: NodeModule | StubModule): VisitResult {
-        return {origin: ref, compiled: null, deps: []};
+        let compiled = (ref instanceof StubModule /*&& ref.context == 'js'*/) ?
+            new StubJSModule() : null;
+        return {origin: ref, compiled, deps: []};
     }
 }
 
 
 type VisitOptions = {basedir?: string}
 type VisitResult = {origin?: ModuleRef, compiled: CompilationUnit, deps: ModuleDependency[]}
-
-
-interface CompilationUnit {
-    env: Environment
-    contentType: string
-    process(key: string, deps: ModuleDependency[]): string | Uint8Array
-}
-
 
 
 namespace TextSource {
@@ -332,5 +329,4 @@ namespace TextSource {
 
 
 
-export { AcornCrawl, SearchPath, VisitOptions, VisitResult,
-         CompilationUnit, TextSource }
+export { AcornCrawl, SearchPath, VisitOptions, VisitResult, TextSource }
