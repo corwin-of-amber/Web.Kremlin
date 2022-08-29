@@ -177,7 +177,8 @@ class Vue3Compiler extends VueCompiler {
     }
 
     _output(parsed: SFCDescriptor, content: string, filename?: string): TransientCode {
-        var lang = parsed.script.attrs['lang'] as string,
+        var script = parsed.script ?? parsed.scriptSetup,  /* could there be both..? */
+            lang = script.attrs['lang'] as string,
             type = {'ts': '.ts', 'typescript': '.ts'}[lang] || 'js',
             ext = `.${type}`;
         return new TransientCode(
