@@ -208,6 +208,8 @@ class Deployment extends InEnvironment {
         var cjs = new ConcatenatedJSModule().in(this.env),
             deps = new ConcatenatedJSPostprocessor(this, cjs, entry).getDeps();
 
+        cjs.outDir = this.outDir;
+
         return this.writeOutput(outputFilename, cjs.process(outputFilename, deps), 'js');
     }
 

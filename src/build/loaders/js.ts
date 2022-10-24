@@ -514,8 +514,12 @@ namespace AcornUtils {
 class StubJSModule extends CompilationUnitStub {
     contentType: 'js' = 'js'
 
+    constructor(public warn?: string) { super(); }
+
     process(key: string, deps: ModuleDependency<any>[]): string | Uint8Array {
-        return `kremlin.m['${key}'] = function(module,exports,global) {};`;
+        return `kremlin.m['${key}'] = function(module,exports,global) {
+            ${this.warn ? `console.warn(${JSON.stringify(`${key}: ${this.warn}`)});` : ''}
+        };`;
     }
 }
 

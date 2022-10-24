@@ -289,8 +289,8 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitLeaf(ref: NodeModule | StubModule): VisitResult {
-        let compiled = (ref instanceof StubModule /*&& ref.context == 'js'*/) ?
-            new StubJSModule() : null;
+        let compiled = (ref instanceof StubModule && ref.context == 'js') ?
+            new StubJSModule('module stub') : null;
         return {origin: ref, compiled, deps: []};
     }
 }

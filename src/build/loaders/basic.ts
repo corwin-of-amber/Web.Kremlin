@@ -1,7 +1,8 @@
+import path from 'path';
 import { InEnvironment } from '../environment';
 import type { CompilationUnit } from '../compilation-unit';
 import type { AcornJSModule } from './js';
-import { SourceFile, TransientCode, ModuleDependency } from '../modules';
+import { ModuleRef, ModuleDependency, SourceFile, TransientCode } from '../modules';
 
 
 
@@ -51,10 +52,11 @@ class JsonModule extends InEnvironment implements CompilationUnit {
 
 class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     contentType = 'js'
+    outDir: string  /* for relative resource paths */
 
     process(key: string, deps: ModuleDependency<AcornJSModule>[]) {
         var preamble = deps.map(d => d.source?.extractShebang()).find(x => x),
-            contents = this.readAll(deps),
+            contents = this.readAll(deps).map(s => s.map(s => this.stripSourceMaps(s))),
             init = this.require(deps.filter(d => d.source));
 
         return [preamble].concat(...contents).concat(init).join('\n');
@@ -66,13 +68,38 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
                 ref.readSync()
             : ref instanceof TransientCode && ref.contentType === 'js' ?
                 ref.content
+            : ref instanceof SourceFile ?
+                this.makeScriptStub(d.target, this._urlOf(ref))
             : undefined
         ).filter(x => x));
+    }
+
+    /**
+     * *Blasts away* the sourcemaps; in principle, the sourcemaps need
+     * to be merged somehow, but for now at least don't let them mislead
+     * the debugger because they are falsified in the concatenated result.
+     * @param compiled JS output
+     */
+    stripSourceMaps(compiled: string) {
+        return compiled.replace(/^\/\/# sourceMappingURL=.*/gm, '');
+    }
+
+    /** @oops `makeScriptStub`, `require`, `_urlOf`, `_rel` duplicate some content from `HtmlModule` */
+    makeScriptStub(ref: ModuleRef, content: any = {}) {
+        return `kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };`;
     }
 
     require(deps: ModuleDependency<AcornJSModule>[]) {
         var keys = deps.map(d => d.target.normalize().canonicalName);
         return `{ let c = kremlin.requires(${JSON.stringify(keys)}); if (typeof module !== 'undefined') module.exports = c; }`;
+    }
+
+    _urlOf(m: SourceFile) {
+        return this._rel(m.filename);
+    }
+
+    _rel(filename: string) {
+        return this.outDir ? path.relative(this.outDir, filename) : filename;
     }
 }
 
