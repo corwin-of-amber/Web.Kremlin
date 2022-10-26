@@ -109,10 +109,13 @@ class PolicyBase implements Policy {
     }
 
     packageEntryPoint(pd: PackageDir): SourceFile {
+        var aliases = this.packageAliases(pd);
         for (let candidate of this.getMainFilenames(pd.manifest)
                               .filter(x => typeof x === 'string')) {
             for (let ext of ['', '.js', '.ts']) {  /** @oops hard-coded extensions here */
-                var sf = pd.getIfExists(candidate + ext)?.normalize();
+                let fn = candidate + ext;
+                fn = this._resolveAliases(aliases, fn) ?? fn;
+                let sf = pd.getIfExists(fn)?.normalize();
                 if (sf instanceof SourceFile) return sf;
             }
         }
@@ -136,11 +139,23 @@ class PolicyBase implements Policy {
         return this.getOverrideFields(pd.manifest)
             .filter(x => typeof x === 'object');
     }
+
+    // a bit ad-hoc, should probably be in `SearchPath`
+    _resolveAliases(aliases: {[name: string]: string}[], fn: string) {
+        let prefix = fn.startsWith('./') ? '' : './',
+            key = prefix + fn;
+        for (let al of aliases)
+            if (Object.hasOwn(al, key)) return al[key];
+    }
 }
 
 class NodeJSPolicy extends PolicyBase {
     getMainFilenames(packageJson: any) {
         return [packageJson.main, 'index']
+    }
+
+    getAliasFields(packageJson: any) {
+        return [packageJson.exports];
     }
 
     getOverrideFields(packageJson: any) {
@@ -154,7 +169,7 @@ class BrowserPolicy extends PolicyBase {
     }
 
     getAliasFields(packageJson: any) {
-        return [packageJson.browser];
+        return [packageJson.browser, packageJson.exports];
     }
 
     getOverrideFields(packageJson: any) {

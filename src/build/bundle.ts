@@ -29,6 +29,7 @@ class SearchPath {
     }
 
     lookup(pth: string) {
+        // @todo can the treatment of aliases be done completely within `existsModule`?
         pth = this.aliases[pth] || pth;
         var inDirs = pth.startsWith('.') ? this.wdirs : this.dirs;
         for (let d of inDirs) {
@@ -40,30 +41,28 @@ class SearchPath {
 
     existsModule(basedir: string, pth: string): PackageDir | SourceFile {
         var basename = path.basename(pth),
-            pels = path.dirname(pth).split('/'), cwd = basedir;
-        for (let pel of pels) {
-            if (!(cwd = this._cd(cwd, pel))) return;
-        }
-        // files take precedence over directories
-        var fpath = path.join(cwd, basename);
+            pels = path.dirname(pth).split('/').filter(x => x != '.');
+
+        let cwd = this._withAliases(new SearchPath.DirCursor(basedir, {}));
+        for (let pel of pels)
+            cwd = this._withAliases(cwd.get(pel));
+
         for (var ext of ['', ...this.extensions]) {
             try {
-                var epath = fpath + ext,
-                    stat = fs.statSync(epath);
-                if (stat.isFile()) return new SourceFile(epath);
+                var entry = cwd.get(basename + ext);
+                    //stat = fs.statSync(epath);
+                if (entry.isFile()) return new SourceFile(entry.path);
             }
             catch { }
         }
-        if (cwd = this._cd(cwd, basename))
-            return new PackageDir(cwd);
+        if ((cwd = cwd.get(basename)).isDirectory())
+            return new PackageDir(cwd.path);
     }
 
-    _cd(cwd: string, rel: string) {
-        cwd = path.join(cwd, rel);
-        try {
-            if (fs.statSync(cwd).isDirectory()) return cwd;
-        }
-        catch { }
+    _withAliases(cur: SearchPath.DirCursor) {
+        let aliases = SearchPath._aliased(cur.path);
+        cur.aliases = SearchPath.aliasesToTree(aliases, cur.aliases, cur.path);
+        return cur;
     }
 
     static _aliased(cwd: string) {
@@ -80,6 +79,59 @@ class SearchPath {
         }
         return new SearchPath(l.map(d => path.join(d, 'node_modules')), [dir],
                               this._aliased(dir));
+    }
+}
+
+namespace SearchPath {
+    export class DirCursor {
+        phys: string /** physical path */
+        aliases: AliasTree
+
+        constructor(phys: string, aliases: AliasTree) {
+            this.phys = phys;
+            this.aliases = aliases;
+        }
+
+        get(name: string) {
+            if (name === '.') return this;
+            else return new DirCursor(path.join(this.path, name),
+                Object.hasOwn(this.aliases, name) ? aobj(this.aliases[name]) : {});
+        }
+
+        get path() {
+            return Object.hasOwn(this.aliases, '.')
+                   ? (this.aliases['.'] as string) : this.phys;
+        }
+
+        exists() { return this._stat(_ => true); }
+        isFile() { return this._stat(_ => _.isFile()); }
+        isDirectory() { return this._stat(_ => _.isDirectory()); }
+
+        _stat(op: (s: fs.Stats) => boolean) {
+            try { return op(fs.statSync(this.path)); }
+            catch { return false; }
+        }
+    }
+
+    type AliasTree = {[name: string]: string | AliasTree} /* note: only '.' is allowed to have a string value */
+
+    export function aliasesToTree(desc: {[name: string]: string}, into: AliasTree = {}, baseDir?: string) {
+        let al: AliasTree = into;
+        for (let [name, target] of Object.entries(desc)) {
+            if (typeof target !== 'string') continue;  // better filter out beforehand?..
+            let steps = name.split('/').filter(x => x && x !== '.'),
+                cur: AliasTree = al;
+            for (let pel of steps) {
+                cur = aobj(cur[pel] ??= {});
+            }
+            cur['.'] = baseDir ? path.join(baseDir, target) : target;
+        }
+        return al;
+    }
+
+    function aobj<T>(a: T): T & object {
+        assert(typeof a === 'object');
+        return a;
     }
 }
 
