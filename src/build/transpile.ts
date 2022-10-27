@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 
 import { ModuleRef, BinaryAsset } from './modules';
-import { SearchPath } from './bundle';
+import { SearchPath } from './search-path';
 
 
 

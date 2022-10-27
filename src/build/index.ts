@@ -3,7 +3,8 @@ import { Environment, NodeJSRuntime, BrowserShims,
          NodeJSPolicy, BrowserPolicy, Library} from './environment';
 import { UserDefinedProjectOptions,
          UserDefinedOverrides, UserDefinedAssets } from './configuration';
-import { AcornCrawl, SearchPath, VisitResult } from './bundle';
+import { SearchPath } from './search-path';
+import { AcornCrawl, VisitResult } from './bundle';
 import { Deployment } from './deploy';
 import { AssetBundler, DummyCompiler } from './transpile';
 import { DevAdjustments, ProdAdjustments } from './adjustments';

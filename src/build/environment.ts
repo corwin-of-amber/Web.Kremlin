@@ -5,6 +5,7 @@ import { lazily } from '../infra/memo';
 import nonenumerable from '../infra/non-enumerable';
 import { ModuleRef, NodeModule, ShimModule,
          PackageDir, SourceFile, MainFileNotFound } from './modules';
+import { SearchPath } from './search-path';
 import type { Transpiler } from './transpile';
 import type { Adjustment } from './adjustments';
 import { BuildCache, OutputCache } from './cache';
@@ -43,11 +44,6 @@ class Library {
     override: boolean = false  /* whether to prioritize over local modules */
     modules: (ModuleRef & {name: string})[] = []
 }
-
-export { Environment, InEnvironment, Library }
-
-/* needs to be after InEnvironment, Library (cyclic deps :/) */
-import { SearchPath } from './bundle';
 
 
 class NodeJSRuntime extends Library {
@@ -180,5 +176,5 @@ class BrowserPolicy extends PolicyBase {
 }
 
 
-
-export { NodeJSRuntime, BrowserShims, NodeJSPolicy, BrowserPolicy }
+export { Environment, InEnvironment, Library,
+         NodeJSRuntime, BrowserShims, NodeJSPolicy, BrowserPolicy }
