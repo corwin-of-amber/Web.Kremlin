@@ -1,6 +1,7 @@
 import { AcornCrawl } from './bundle';
 import { AcornJSModule } from './loaders/js';
 import { Deployment } from './deploy';
+import { ModuleRef } from './modules';
 
 /** @todo UI is broken since the Vue dependency no longer exists in the top-level package */
 import { ModuleDepNavigator } from './ui/introspect';
@@ -38,7 +39,7 @@ function testbed() {
 
     var proj = ProjectDefinition.normalize(projects['tests/css-deps']);
 
-    var targets = [].concat(...proj.main.map(t => t.input));
+    var targets = ([] as ModuleRef[]).concat(...proj.main.map(t => t.input));
 
     var deploy = new Deployment(resolve(proj, proj.buildDir)).in(env);
 

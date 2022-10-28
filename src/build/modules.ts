@@ -69,24 +69,36 @@ class PackageDir extends ModuleRef {
             fu = findUp.sync(['package.json', 'node_modules'], {cwd});
         if (fu) return new PackageDir(path.dirname(fu));
     }
+
+    static promote(dir: string | PackageDir): PackageDir {
+        return dir instanceof this ? dir : new this(dir);
+    }
 }
 
 class SourceFile extends ModuleRef {
     filename: string
     contentType?: string
-    package?: PackageDir
-    constructor(filename: string, pkg?: PackageDir, contentType?: string) {
+    inDir?: PackageDir
+    constructor(filename: string, inDir?: PackageDir, contentType?: string) {
         super();
         this.filename = filename;
         this.contentType = contentType;
-        this.package = pkg || PackageDir.lookUp(this.filename);
+        this.inDir = inDir || PackageDir.lookUp(this.filename);
     }
     get id() { return JSON.stringify([this.constructor.name, this.filename]); };
-    get canonicalName() {
-        var pkg = this.package;
+    get package() {
+        let pkg = this.inDir;
         while (pkg && !pkg.manifestFile) pkg = pkg.parent;
+        return pkg;
+    }
+    get canonicalName() {
+        let pkg = this.package;
         return pkg ? `${pkg.canonicalName}:${path.relative(pkg.dir, this.filename)}`
              : this.filename;
+    }
+    get relativePath() {
+        let pkg = this.package;
+        return pkg ? path.relative(pkg.dir, this.filename) : this.filename;
     }
     readSync() { return fs.readFileSync(this.filename, 'utf-8'); }
 }

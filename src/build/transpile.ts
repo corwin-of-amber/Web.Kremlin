@@ -49,7 +49,8 @@ class DummyCompiler implements Transpiler {
     match(filename: string) { return true; }
 
     compileFile(filename: string) {
-        var sp = new SearchPath(this.searchPath.dirs, [path.dirname(filename)]);
+        var sp = new SearchPath(this.searchPath.dirs,
+            [SearchPath.DirCursor.promote(path.dirname(filename))]);
 
         for (let basejs of this.candidates(filename)) {
             try {

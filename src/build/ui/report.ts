@@ -1,9 +1,12 @@
+import path from 'path';
 import { Environment } from '../environment';
+import { ProjectDefinitionNorm } from '../../project';
 import { ModuleRef, SourceFile, StubModule } from '../modules';
 import { CompilationUnit, CompilationUnitStub } from '../compilation-unit';
 
 
 interface Report {
+    start(proj: ProjectDefinitionNorm): void
     visit(ref: ModuleRef): void
     error(ref: ModuleRef, err: any): void
     warn(ref: ModuleRef, msg: any): void
@@ -21,6 +24,7 @@ const Status = Report.Status;
 
 
 class ReportSilent implements Report {
+    start(proj: ProjectDefinitionNorm) { }
     visit(ref: ModuleRef) { }
     error(ref: ModuleRef, err: any) { this.status = Status.ERROR; }
     warn(ref: ModuleRef, msg: any) {  }
@@ -34,15 +38,22 @@ class ReportToConsole implements Report {
     console: typeof console
     status: Status = Status.OK
 
+    _wd: string /* workdir, for reporting filenames */
     _lastSf: SourceFile
 
     constructor(consol: typeof console) {
         this.console = consol;
     }
 
+    start(proj: ProjectDefinitionNorm) {
+        this._wd = proj.wd;
+    }
+
     visit(ref: ModuleRef) {
         if (ref instanceof SourceFile) {
-            this.console.log(`%cvisit ${ref.filename}`, 'color: #8080ff');
+            let fn = path.relative(this._wd, ref.filename);
+            if (fn.startsWith('.')) fn = ref.filename;
+            this.console.log(`%cvisit ${fn}`, 'color: #8080ff');
             this._lastSf = ref;
         }
     }

@@ -71,6 +71,9 @@ class AcornCrawl extends InEnvironment {
 
     visitFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         var fn = ref.filename;
+        if (ref.package) {
+            opts = {basedir: SearchPath.cursorAt(ref), ...opts};
+        }
         if      (/\.[cm]?js$/.test(fn))   return this.visitJSFile(ref, opts);
         else if (fn.endsWith('.css'))  return this.visitCSSFile(ref, opts);
         else if (fn.endsWith('.json')) return this.visitJSONFile(ref, opts);
@@ -111,9 +114,8 @@ class AcornCrawl extends InEnvironment {
 
         var lookup = (u: acorn.Node, src: string) => {
             if (m.isExternalRef(u)) return new NodeModule(src);
-            if (src.startsWith('*')) return new SourceFile(src.slice(1)); /** @oops */
             try {
-                /** @todo This setting will prioritized substitute modules, then
+                /** @todo This setting will prioritize substitute modules, then
                  * locally installed modules, then intrinsic modules.
                  *  Is it ok? Should this be configurable? */
                 return this.modules.substitute.get(src) || sp.lookup(src);
@@ -133,7 +135,7 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitHtml(m: HtmlModule, opts: VisitOptions = {}): VisitResult {
-        var dir = opts.basedir || m.dir, sp = new SearchPath([dir], [dir]);
+        var sp = SearchPath.fromExact(opts.basedir || m.dir);
 
         var lookup = (src: string) => {
             try       { return sp.lookup(src); }
@@ -146,7 +148,7 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitCSS(m: PostCSSModule, opts: VisitOptions = {}): VisitResult {
-        var dir = opts.basedir || m.dir, sp = new SearchPath([dir], [dir]);
+        var sp = SearchPath.fromExact(opts.basedir || m.dir);
 
         var lookup = (src: string) => {
             try       { return sp.lookup(src); }
@@ -194,16 +196,17 @@ class AcornCrawl extends InEnvironment {
             case 'css':
                 return this.visitCSS(new PostCSSModule(ref.content), opts);
             default:
-                /** @oops all non-JS functionality is essentially duplicated here */
-                var fn = path.join(opts.basedir || '.',
-                                ref.filename || `transient.${ref.contentType}`);
+                /** @oops all non-JS functionality from `visitFile` is essentially duplicated here */
+                var fn = path.join(SearchPath.DirCursor.demote(opts.basedir || '.'),
+                                   ref.filename || `transient.${ref.contentType}`);
                 for (let cmplr of this.env.compilers) {
                     if (cmplr.match(fn)) {
                         var c = cmplr.compileSource(ref.content, fn)
                         return this.visitModuleRef(c, opts);
                     }
                 }
-                throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}')`);
+                throw new Error(`cannot visit TransientCode(..., contentType='${ref.contentType}'):`+
+                                ` no compiler for this content type`);
             }
         });
     }
@@ -225,7 +228,7 @@ class AcornCrawl extends InEnvironment {
 }
 
 
-type VisitOptions = {basedir?: string}
+type VisitOptions = {basedir?: string | SearchPath.DirCursor}
 type VisitResult = {origin?: ModuleRef, compiled: CompilationUnit, deps: ModuleDependency[]}
 
 

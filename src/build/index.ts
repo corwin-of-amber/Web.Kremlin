@@ -77,6 +77,7 @@ class Builder {
     }
 
     build() {
+        this.env.report.start(this.proj);
         Environment.runIn(this.env, () => {
             this.deploy(this.crawl());
             if (!this.isOk()) this.console.error("build failed.");

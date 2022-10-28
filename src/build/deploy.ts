@@ -231,7 +231,7 @@ class Deployment extends InEnvironment {
 
     static _relative(from: string, target: SourceFile) {
         return new SourceFile(path.relative(from, target.filename),
-                              target.package, target.contentType);
+                              target.inDir, target.contentType);
     }
 
     static NOEXT = ['plain', 'application/octet-stream'];
