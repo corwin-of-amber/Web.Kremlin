@@ -4,7 +4,7 @@ import 'zone.js';
 import { lazily } from '../infra/memo';
 import nonenumerable from '../infra/non-enumerable';
 import { ModuleRef, NodeModule, ShimModule,
-         PackageDir, SourceFile, MainFileNotFound } from './modules';
+         PackageDir, SourceFile, MainFileNotFound, FileNotFound } from './modules';
 import { SearchPath } from './search-path';
 import type { Transpiler } from './transpile';
 import type { Adjustment } from './adjustments';
@@ -16,7 +16,7 @@ class Environment {
     infra: Library[] = []
     compilers: Transpiler[] = []
     adjustments: {[type: string]: Adjustment[]} = {}
-    policy: Policy = new BrowserPolicy
+    policy: Policy = new PolicyBase
     cache: {build: BuildCache, out: OutputCache} =
         {build: new BuildCache, out: new OutputCache}
     report: Report = new ReportSilent
@@ -24,7 +24,7 @@ class Environment {
 
 namespace Environment {
     export function get(): Environment {
-        return Zone.current.get('env');
+        return Zone.current.get('env') ?? Environment.NULL();
     }
     export function runIn<T>(env: Environment, cb: () => T): T {
         return Zone.current.fork({name: 'Environment', properties: {env}})
@@ -65,7 +65,7 @@ class BrowserShims extends Library {
                         'url', 'querystring', 'crypto', 'buffer', 'process']
             .map(m => {
                 try { return new ShimModule(m, path.lookup(m)); }
-                catch { /* shim is missing */ } 
+                catch (e) { if (!(e instanceof FileNotFound)) throw e; } 
             }).filter(x => x); 
     }
 
