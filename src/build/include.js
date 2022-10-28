@@ -45,6 +45,11 @@ var kremlin = {m: {}, loaded: {}, debug: false,
         if (typeof __filename == 'undefined') this.global.__filename = '';
         if (typeof __dirname  == 'undefined') this.global.__dirname = '';
     },
+    main(entry, globals = {}) {
+        Object.assign(this.global, globals);
+        if (!Array.isArray(entry)) entry = [entry];
+        return this.requires(entry);
+    },
     plug(proj) {
         return require('nwjs-kremlin').watch?.(proj);
     }

@@ -10,6 +10,7 @@ interface Report {
     visit(ref: ModuleRef): void
     error(ref: ModuleRef, err: any): void
     warn(ref: ModuleRef, msg: any): void
+    info(ref: ModuleRef, msg: any): void
     deploy(outFilename: string): void
     summary(ref: ModuleRef, cu?: CompilationUnit): void
     status: Status
@@ -28,6 +29,7 @@ class ReportSilent implements Report {
     visit(ref: ModuleRef) { }
     error(ref: ModuleRef, err: any) { this.status = Status.ERROR; }
     warn(ref: ModuleRef, msg: any) {  }
+    info(ref: ModuleRef, msg: any) {  }
     deploy(outFilename: string) { }
     summary(ref: ModuleRef, cu?: CompilationUnit) { }
     status: Status = Status.OK
@@ -72,6 +74,10 @@ class ReportToConsole implements Report {
 
     warn(ref: ModuleRef, msg: any) {
         console.warn(msg);
+    }
+
+    info(ref: ModuleRef, msg: any) {
+        console.info(`%c[%s] %s`, "color: #ffaaaa", ref.canonicalName, msg);
     }
 
     deploy(outFilename: string) {

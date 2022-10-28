@@ -53,6 +53,7 @@ class Deployment extends InEnvironment {
     files: Set<string> = new CaseInsensitiveSet
     modules: {dmod: DeployModule, outputs: Output[]}[] = []
     include: Output
+    globals: Map<string, ModuleRef> = new Map
     bundle: {js?: Output, css?: Output} = {}
 
     constructor(outDir: string) { super(); this.outDir = outDir; }
@@ -66,6 +67,10 @@ class Deployment extends InEnvironment {
     addVisitResult(vis: VisitResult) {
         this.add(new DeployModule(vis.origin.normalize(),
                                   vis.compiled, vis.deps));
+        for (let [k, v] of vis.globals?.entries() ?? []) {
+            this.env.report.info(v, `is used for global '${k}'`);
+            this.globals.set(k, v);
+        }
     }
 
     addAsset(asset: SourceFile) {
@@ -159,8 +164,10 @@ class Deployment extends InEnvironment {
     }
 
     /**
-     * Concatenates all JS modules.
-     * @todo this is too similar to `makeEntryJS`
+     * Concatenates all JS modules so that they can be included in a single `<script>`
+     * tag.
+     * @todo this is too similar to `makeEntryJS`; note that it does not
+     *   contain the init script (`entryPoints` is set to `[]`).
      */
     squelch(outputFilename = 'bundle.js') {
         this.flush();
@@ -169,12 +176,6 @@ class Deployment extends InEnvironment {
             out = this.writeOutput(outputFilename, cjs.process(outputFilename, deps), 'js');
 
         this.bundle.js = out;
-        /*
-        for (let m of this.modules) {
-            if (m.outputs.some(e => e.contentType === 'js'))
-                m.outputs = [out]; /** @todo mixed types? *
-        }
-        */
     }
 
     wrapUp(entries: {input: ModuleRef[], output: string}[]) {
@@ -199,7 +200,8 @@ class Deployment extends InEnvironment {
 
         html.outDir = this.outDir;
 
-        return this.writeOutput(outputFilename, html.process(outputFilename, deps), 'html');
+        return this.writeOutput(outputFilename,
+            html.process(outputFilename, deps, this.globals), 'html');
     }
 
     makeEntryJS(entry: ModuleRef[], outputFilename: string) {
@@ -210,7 +212,8 @@ class Deployment extends InEnvironment {
 
         cjs.outDir = this.outDir;
 
-        return this.writeOutput(outputFilename, cjs.process(outputFilename, deps), 'js');
+        return this.writeOutput(outputFilename,
+            cjs.process(outputFilename, deps, this.globals), 'js');
     }
 
     /**
@@ -301,7 +304,7 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
             [
                 this.incDep(this.deploy.include),
                 this.incDep(this.deploy.bundle.js),
-                ...this.mkDeps_(this.deploy.modules).map(d => this.woJs(d))
+                ...this.mkDeps_(this.deploy.modules).map(d => this.nonJS(d))
             ].filter(x => x) : super.getDeps();
     }
 
@@ -309,9 +312,9 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
      * Omits JS outputs from dependencies; used when JS compilation
      * units have been bundled.
      */
-    woJs(d: ModuleDependency) {
-        let isJs = (mod: any) => mod.contentType === 'js';
-        return {...d, compiled: d.compiled?.filter(x => !isJs(x))};
+    nonJS(d: ModuleDependency) {
+        let isJS = (mod: any) => mod.contentType === 'js';
+        return {...d, compiled: d.compiled?.filter(x => !isJS(x))};
     }
 
     referenceOf(m: DeployModule): HtmlRef {

@@ -131,7 +131,20 @@ class AcornCrawl extends InEnvironment {
         var deps = m.imports.map(u => mkdep(u, lookup(u, u.source.value)))
             .concat(m.requires.map(u => mkdep(u, lookup(u, u.arguments[0].value))))
             .concat(m.exportsFrom.map(u => mkdep(u, lookup(u, u.source.value))));
-        return {compiled: m, deps};
+
+        m.extractVars();
+        /** @oops this is specific to `Buffer`. */
+        let buf = m.vars.globals.get('Buffer'),
+            globals: GlobalDependencies = undefined;
+        if (buf) {
+            let mod = lookup(buf[0], 'buffer');
+            if (!(mod instanceof StubModule)) {
+                deps.push(mkdep(buf[0], mod));
+                globals = new Map([['Buffer', mod]]);
+            }
+        }
+
+        return {compiled: m, deps, globals};
     }
 
     visitHtml(m: HtmlModule, opts: VisitOptions = {}): VisitResult {
@@ -229,7 +242,14 @@ class AcornCrawl extends InEnvironment {
 
 
 type VisitOptions = {basedir?: string | SearchPath.DirCursor}
-type VisitResult = {origin?: ModuleRef, compiled: CompilationUnit, deps: ModuleDependency[]}
+type VisitResult = {
+    origin?: ModuleRef
+    compiled: CompilationUnit
+    deps: ModuleDependency[]
+    globals?: GlobalDependencies
+}
+
+type GlobalDependencies = Map<string, ModuleRef>
 
 
 namespace TextSource {
@@ -261,4 +281,4 @@ namespace TextSource {
 
 
 
-export { AcornCrawl, VisitOptions, VisitResult, TextSource }
+export { AcornCrawl, VisitOptions, VisitResult, GlobalDependencies, TextSource }

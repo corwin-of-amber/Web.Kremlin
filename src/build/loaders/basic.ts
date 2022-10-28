@@ -1,6 +1,7 @@
 import path from 'path';
 import { InEnvironment } from '../environment';
 import type { CompilationUnit } from '../compilation-unit';
+import type { GlobalDependencies } from '../bundle';
 import type { AcornJSModule } from './js';
 import { ModuleRef, ModuleDependency, SourceFile, TransientCode } from '../modules';
 
@@ -54,10 +55,10 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     contentType = 'js'
     outDir: string  /* for relative resource paths */
 
-    process(key: string, deps: ModuleDependency<AcornJSModule>[]) {
+    process(key: string, deps: ModuleDependency<AcornJSModule>[], globals?: GlobalDependencies) {
         var preamble = deps.map(d => d.source?.extractShebang()).find(x => x),
             contents = this.readAll(deps).map(s => s.map(s => this.stripSourceMaps(s))),
-            init = this.require(deps.filter(d => d.source));
+            init = this.main(deps.filter(d => d.source), globals);
 
         return [preamble].concat(...contents).concat(init).join('\n');
     }
@@ -89,9 +90,10 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
         return `kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };`;
     }
 
-    require(deps: ModuleDependency<AcornJSModule>[]) {
+    main(deps: ModuleDependency<AcornJSModule>[], globals?: GlobalDependencies) {
         var keys = deps.map(d => d.target.normalize().canonicalName);
-        return `{ let c = kremlin.requires(${JSON.stringify(keys)}); if (typeof module !== 'undefined') module.exports = c; }`;
+        /** @todo use `globals` like in HTML */
+        return `{ let c = kremlin.main(${JSON.stringify(keys)}); if (typeof module !== 'undefined') module.exports = c; }`;
     }
 
     _urlOf(m: SourceFile) {

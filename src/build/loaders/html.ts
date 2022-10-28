@@ -5,7 +5,7 @@ import parse5Walk from 'walk-parse5'
 
 import { Environment, InEnvironment } from '../environment';
 import type { CompilationUnit } from '../compilation-unit';
-import { TextSource } from '../bundle';
+import { GlobalDependencies, TextSource } from '../bundle';
 import { SourceFile, ModuleRef, ModuleDependency } from '../modules';
 
 
@@ -48,7 +48,7 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
         }).filter(x => x);
     }
 
-    process(key: string, deps: ModuleDependency[]) {
+    process(key: string, deps: ModuleDependency[], globals?: GlobalDependencies) {
         if (!this.scripts) this.extractScripts();
 
         var entries = this.scripts.map(u => {
@@ -59,8 +59,8 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
 
         var text = this.text;
         if (entries.length > 0) {
-            text =  TextSource.interpolate(text, entries.map((e, i) => {
-                var k = this.processScript(e.tag, e.ref);
+            text = TextSource.interpolate(text, entries.map((e, i) => {
+                var k = this.processScript(e.tag, e.ref, globals);
                 if (i == 0) k.text = includes + '\n' + k.text;
                 return k;
             }));
@@ -70,10 +70,10 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
         return this.postprocess(text);
     }
 
-    processScript(script: parse5.DefaultTreeElement, ref: ModuleRef) {
+    processScript(script: parse5.DefaultTreeElement, ref: ModuleRef, globals?: GlobalDependencies) {
         var loc = script.sourceCodeLocation;   assert(loc);
         var at = {start: loc.startOffset, end: loc.endOffset};
-        return {text: this.makeInitScript(ref), ...at};
+        return {text: this.makeInitScript(ref, globals), ...at};
     }
 
     *makeIncludeTags(deps: ModuleDependency[]) {
@@ -106,9 +106,19 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
         return `<script>kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };</script>`;
     }
 
-    makeInitScript(ref: ModuleRef) {
-        var key = ref.normalize().canonicalName;
-        return `\n<script>kremlin.require('${key}');</script>`;
+    makeInitScript(ref: ModuleRef, globals?: GlobalDependencies) {
+        var key = ref.normalize().canonicalName,
+            globmap = this.makeGlobals(globals);
+        return `\n<script>kremlin.main('${key}', ${globmap});</script>`;
+    }
+
+    makeGlobals(globals?: GlobalDependencies) {
+        /** @oops this is specific to `Buffer` */
+        let buf = globals?.get('Buffer');
+        if (buf)
+            return `{Buffer: kremlin.require('${buf.normalize().canonicalName}').Buffer}`;
+        else
+            return undefined;
     }
 
     postprocess(text: string) {
