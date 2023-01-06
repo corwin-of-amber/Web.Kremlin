@@ -3,6 +3,7 @@ const fs = (0||require)('fs') as typeof import('fs'),
       findUp = (0||require)('find-up');
 
 import type TypeScript from 'typescript';
+import stripComments from 'strip-comments';
 
 import { TransientCode } from '../modules';
 import { Transpiler } from '../transpile';
@@ -33,7 +34,7 @@ class TypeScriptCompiler implements Transpiler {
     getConfigFor(filename: string) {
         var cwd = path.dirname(filename),
             found = findUp.sync('tsconfig.json', {cwd});
-        return this._opts(found && JSON.parse(fs.readFileSync(found, 'utf-8')), filename);
+        return this._opts(found && parseJSONWithComments(fs.readFileSync(found, 'utf-8')), filename);
     }
 
     _opts(config: TypeScript.TranspileOptions = {}, filename?: string) {
@@ -44,6 +45,9 @@ class TypeScriptCompiler implements Transpiler {
     }
 }
 
+function parseJSONWithComments(s: string) {
+    return JSON.parse(stripComments(s));
+}
 
 
 export { TypeScriptCompiler }

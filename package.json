@@ -41,6 +41,7 @@
     "postcss": "^8.4.12",
     "prelude-ls": "^1.2.1",
     "sass": "^1.52.3",
+    "strip-comments": "^2.0.1",
     "typescript": "^4.8.4",
     "underscore": "^1.10.2",
     "walk-parse5": "^2.0.0",
