@@ -114,6 +114,7 @@ class AcornCrawl extends InEnvironment {
 
         var lookup = (u: acorn.Node, src: string) => {
             if (m.isExternalRef(u)) return new NodeModule(src);
+            if (src.startsWith('*')) return new SourceFile(src.slice(1)); // special ref for companion modules in grouped
             try {
                 /** @todo This setting will prioritize substitute modules, then
                  * locally installed modules, then intrinsic modules.
@@ -132,17 +133,18 @@ class AcornCrawl extends InEnvironment {
             .concat(m.requires.map(u => mkdep(u, lookup(u, u.arguments[0].value))))
             .concat(m.exportsFrom.map(u => mkdep(u, lookup(u, u.source.value))));
 
-        m.extractVars();
-        /** @oops this is specific to `Buffer`. */
-        let buf = m.vars.globals.get('Buffer'),
-            globals: GlobalDependencies = undefined;
-        if (buf) {
-            let mod = lookup(buf[0], 'buffer');
+        /* Process global dependencies such as `Buffer` */
+        let globdeps = m.detectGlobalDependencies(),
+            globals: GlobalDependencies = new Map;
+        for (let {u, modname, name} of globdeps) {
+            let mod = lookup(u, modname);
             if (!(mod instanceof StubModule)) {
-                deps.push(mkdep(buf[0], mod));
-                globals = new Map([['Buffer', mod]]);
+                deps.push(mkdep(u, mod));
+                globals.set(name, mod);
             }
         }
+
+        if (globals.size === 0) globals = undefined;
 
         return {compiled: m, deps, globals};
     }

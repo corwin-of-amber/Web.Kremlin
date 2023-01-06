@@ -181,6 +181,17 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
             AcornUtils.is(p, "Property") && p.shorthand);
     }
 
+    detectGlobalDependencies() {
+        if (!this.vars) this.extractVars();
+        /** @oops this is specific to Buffer */
+        let globals = [],
+            buf = this.vars.globals.get('Buffer');
+        if (buf) {
+            globals.push({u: buf[0], modname: 'buffer', name: 'Buffer'});
+        }
+        return globals;
+    }
+
     process(key: string, deps: ModuleDependency<acorn.Node>[]) {
         if (!this.vars) this.extractVars();
         this.vars.generated.clear(); /* reset */
