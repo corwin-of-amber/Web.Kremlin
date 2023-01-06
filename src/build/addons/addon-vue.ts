@@ -142,7 +142,7 @@ class Vue3Compiler extends VueCompiler {
                 path.join(this.outDir, this._basename(filename) + '.css')),
             outJs = this._output(parsed.descriptor, 
                 `import '*${outCss.filename}';\n${out.js}`, filename);
-        mkdirp.sync(path.dirname(outCss.filename));
+        fs.mkdirSync(path.dirname(outCss.filename), {recursive: true});
         fs.writeFileSync(outCss.filename, out.css);
         return new GroupedModules(outJs, {
             [outCss.filename]: outCss

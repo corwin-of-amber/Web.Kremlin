@@ -3,5 +3,8 @@
     "browser": {
         "mass-confusion": true,
         "elided": {}
+    },
+    "dependencies": {
+        "vue": "^3.2.45"
     }
 }

@@ -131,9 +131,11 @@ class BinaryAsset extends ModuleRef {
 
 class GroupedModules extends ModuleRef {
     main: ModuleRef
+    companions: {[name: string]: ModuleRef}
     constructor(main: ModuleRef, companions: {[name: string]: ModuleRef}) {
         super();
         this.main = main;
+        this.companions = companions;
     }
     get id() { return this.main.id; }
     get canonicalName() { return this.main.canonicalName; }
