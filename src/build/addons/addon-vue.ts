@@ -119,6 +119,8 @@ class Vue2Compiler extends VueCompiler {
 class Vue3Compiler extends VueCompiler {
     sfc: typeof import ('../../../addons/vue/v3')
 
+    readonly EXPORT_IDENT = '__sfc'
+
     load() {
         if (!this.sfc) {
             this.sfc = (0||require)('../../addons/vue/v3'); /** @ouch */
@@ -168,7 +170,7 @@ class Vue3Compiler extends VueCompiler {
             css: styles.map(s => s.code).join('\n'),
             js:
                 `const __scopeId = ${JSON.stringify(scopeId)}\n` +
-                `${template.code}\n${this._patchExport(script.content)}`
+                `${template.code}\n${this._injectExport(script.content)}`
         };
     }
 
@@ -185,10 +187,18 @@ class Vue3Compiler extends VueCompiler {
             content, type, this._basename(filename) + ext);
     }
 
-    /** @oops */
-    _patchExport(js: string) {
-        return js.replace(/export\s+default\s+\{/,
-            x => x + 'render, __scopeId,');
+    /**
+     * This looks hairy but is in fact a standard step in Vue SFC compilation.
+     * It stitches together the template and the script.
+     * (This code assumes that the template gets compiled into a function
+     *  called `render`. This may be default with Vue's setup API)
+     * @see https://github.com/vuejs/repl/blob/516b3e154bb8c5f059d396364353ce5ad97a04a6/src/transform.ts#L248
+     */
+    _injectExport(js: string) {
+        let v = this.EXPORT_IDENT;
+        return `${this.sfc.rewriteDefault(js, v, ['decorators-legacy'])}\n` +
+            `Object.assign(${v}, {render, __scopeId});\n` +
+            `export default ${v};`
     }
 }
 
