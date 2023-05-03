@@ -71,3 +71,18 @@ optional, see `src/project.ts`):
 | buildDir: string  | Build output directory (default `build/kremlin`)          |
 | ignore: string[]  | List of locations (globs) to ignore when watching for changes |
 | window: Window    | The active browser window object   |
+
+### Configuration options
+
+Some of the behavior can be adjust via designated fields in the project's root `package.json`.
+
+The `browser` field can be used to offer browser overrides for certain native modules. By default, these only take effect within the root package.
+To enable overrides to apply to the entire build, including imported modules from `node_modules`, set `browser['mass-confusion']` to `true`:
+```
+  "browser": {
+    "mass-confusion": true,
+    "utp-native": "utp-browser"
+  }
+```
+
+Setting any key to `true` will force the module to be `require`d natively, even in a browser environment; this is useful for NWjs applications.
