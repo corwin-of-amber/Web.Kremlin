@@ -23,6 +23,10 @@ abstract class VueCompiler implements Transpiler {
     
     abstract compileFile(filename: string): ModuleRef
     abstract compileSource(source: string, filename?: string): ModuleRef
+
+    get banner() {
+        return `/* created by ${this.constructor.name} */`;
+    }
 }
 
 
@@ -57,19 +61,21 @@ class VueCompilerAutodetect extends VueCompiler {
     /**
      * Inspects `package-lock.json` to find the version of Vue used by the
      * project.
+     * Falls back to `3` if version info cannot be found.
      * @param filename name of file being compiled
      * @returns either `2` or `3`
      */
-    autodetect(filename?: string) {
+    autodetect(filename?: string): 2 | 3 {
         var dir = filename ? path.dirname(filename) : '.',
             pkglock = findUp.sync('package-lock.json', {cwd: dir});
         if (pkglock) {
             var json = JSON.parse(fs.readFileSync(pkglock, 'utf-8')),
-                vue = json.dependencies?.['vue']?.version;
-            if (typeof vue === 'string' && vue.startsWith('3'))
-                return 3;
+                vue = json.dependencies?.['vue']?.version /* legacy lockfile v1 */
+                   ?? json.packages?.['node_modules/vue']?.version;
+            if (typeof vue === 'string' && vue.startsWith('2'))
+                return 2;
         }
-        return 2;
+        return 3;
     }
 }
 
@@ -103,7 +109,7 @@ class Vue2Compiler extends VueCompiler {
                               this._outputBasename(parsed, filename));
 
         mkdirp.sync(path.dirname(outFn));
-        fs.writeFileSync(outFn, out.code);
+        fs.writeFileSync(outFn, this.banner + out.code);
         return new SourceFile(outFn);
     }
 
@@ -142,7 +148,7 @@ class Vue3Compiler extends VueCompiler {
 
         var outCss = new SourceFile(
                 path.join(this.outDir, this._basename(filename) + '.css')),
-            outJs = this._output(parsed.descriptor, 
+            outJs = this._output(parsed.descriptor, this.banner +
                 `import '*${outCss.filename}';\n${out.js}`, filename);
         fs.mkdirSync(path.dirname(outCss.filename), {recursive: true});
         fs.writeFileSync(outCss.filename, out.css);
