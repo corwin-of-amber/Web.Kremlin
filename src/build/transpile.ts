@@ -17,7 +17,7 @@ interface Transpiler {
  * Links to resource assets (images, fonts, etc.).
  */
 class AssetBundler implements Transpiler {
-    extensions = ['png', 'jpg', 'svg', 'ttf', 'woff', 'woff2', 'otf', 'wasm']
+    extensions = ['png', 'jpg', 'svg', 'ttf', 'woff', 'woff2', 'otf', 'eot', 'wasm']
     _re?: RegExp = undefined
 
     match(filename: string): boolean {
