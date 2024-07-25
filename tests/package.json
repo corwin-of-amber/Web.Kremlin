@@ -1,5 +1,6 @@
 {
     "name": "kremlin-test-cases",
+    "type": "module",
     "browser": {
         "mass-confusion": true,
         "elided": {}

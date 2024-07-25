@@ -9,6 +9,7 @@ app.db
 /dist
 /.cache
 /build
+/tmp
 /tests/**/build
 *.app
 *.tgz
