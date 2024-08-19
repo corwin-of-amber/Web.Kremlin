@@ -180,6 +180,10 @@ class Vue3Compiler extends VueCompiler {
         };
     }
 
+    override get banner() {
+        return super.banner + ' window.__VUE_OPTIONS_API__ = window.__VUE_PROD_DEVTOOLS__ = true;'
+    }
+
     _basename(filename?: string) {
         return (filename ? path.basename(filename) : 'tmp.vue');
     }

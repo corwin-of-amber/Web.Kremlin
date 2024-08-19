@@ -8,7 +8,7 @@ import path from 'path';
 import which from 'which';
 import mkdirp from 'mkdirp';
 
-import { linkrel, cp_r, touch, ifExists } from './shutil';
+import { linkrel, cp_r, touch, ifExists, walkSync } from './shutil';
 
 import { PackageDir } from '../build/modules';
 
@@ -29,7 +29,13 @@ class NWjsOrigin {
         return fs.realpathSync(resolveg('nw'));
     }
 
-    static subdir(root: string, subdirs: string[] = ['nwjs.app', 'nwjs/nwjs.app']) {
+    static subdir(root: string, subdirs: string[] = ['nwjs.app']) {
+        for (let subdir of walkSync(root)) {
+            if (subdirs.includes(subdir.name))
+                return path.join(subdir.parentPath, subdir.name);
+        }
+        /*console.log([...walkSync(root)].filter(e => e.name === 'nwjs.app'));
+
         for (let s of subdirs) {
             if (path.basename(root) == s) return root;
         }
@@ -39,7 +45,7 @@ class NWjsOrigin {
                 if (fs.statSync(subdir).isDirectory()) return subdir;
             }
             catch { }
-        }
+        }*/
         return root; /* reasonable fallback..? */
     }
 }

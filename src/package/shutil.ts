@@ -33,7 +33,7 @@ function linkrel(target: string, linkPath: string) {
 
 function ifExists(filename: string) {
     try   { fs.statSync(filename); return filename }
-    catch { return undefined; }
+    catch(e) { console.error(e); return undefined; }
 }
 
 function isDirectory(path: string) {
@@ -45,5 +45,13 @@ function touch(filename: string) {
     fs.utimesSync(filename, tm, tm);
 }
 
+function *walkSync(dirPath: string) {
+    for (let entry of fs.readdirSync(dirPath, {withFileTypes: true})) {
+        yield entry;
+        if (entry.isDirectory())
+            yield* walkSync(path.join(entry.parentPath, entry.name));
+    }
+}
 
-export { ln_sf, rm_rf, cp_r, linkrel, ifExists, isDirectory, touch }
+
+export { ln_sf, rm_rf, cp_r, linkrel, ifExists, isDirectory, touch, walkSync }
