@@ -1,4 +1,5 @@
 import path from 'path'; /* @kremlin.native */
+import * as resolve from 'resolve.exports';
 import 'zone.js';
 
 import { lazily } from '../infra/memo';
@@ -49,11 +50,11 @@ class Library {
 class NodeJSRuntime extends Library {
     constructor() {
         super();
-        this.modules = ['fs', 'path', 'events', 'assert', 'zlib', 'stream', 'util',
+        this.modules = ['fs', 'fs/promises', 'path', 'events', 'assert', 'zlib', 'stream', 'util',
                         'crypto', 'net', 'tty', 'os', 'constants', 'vm',
                         'http', 'https', 'url', 'querystring', 'tls', 'timers',
                         'buffer', 'process', 'child_process', 'string_decoder',
-                        'dgram', 'dns']
+                        'dgram', 'dns', 'module', 'worker_threads']
             .map(m => new NodeModule(m));
     }
 }
@@ -148,7 +149,9 @@ class PolicyBase implements Policy {
 
 class NodeJSPolicy extends PolicyBase {
     getMainFilenames(packageJson: any) {
-        return [packageJson.main, 'index']
+        let rv = resolve.exports(packageJson, '.') || [];
+        return [...rv, packageJson.module, packageJson.main,
+                packageJson.exports?.node?.import, 'index']
     }
 
     getAliasFields(packageJson: any) {
@@ -162,7 +165,7 @@ class NodeJSPolicy extends PolicyBase {
 
 class BrowserPolicy extends PolicyBase {
     getMainFilenames(packageJson: any) {
-        return [packageJson.browser, packageJson.main, 'index']
+        return [packageJson.browser, packageJson.module, packageJson.main, 'index']
     }
 
     getAliasFields(packageJson: any) {

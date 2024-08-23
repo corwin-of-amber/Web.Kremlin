@@ -40,6 +40,7 @@
     "parse5": "^6.0.0",
     "postcss": "^8.4.12",
     "prelude-ls": "^1.2.1",
+    "resolve.exports": "^2.0.2",
     "sass": "^1.52.3",
     "strip-comments": "^2.0.1",
     "typescript": "^4.8.4",
@@ -62,13 +63,16 @@
     "@types/minimatch": "^3.0.5",
     "@types/mkdirp": "^1.0.1",
     "@types/node": "^20.14.10",
-    "@types/parse5": "^5.0.3"
+    "@types/parse5": "^5.0.3",
+    "tsx": "^4.17.0"
   },
   "browserslist": [
     "Chrome 80"
   ],
   "kremlin": {
-    "ignore": ["tmp"]
+    "ignore": [
+      "tmp"
+    ]
   },
   "app": {
     "main": "build/kremlin/index.html"

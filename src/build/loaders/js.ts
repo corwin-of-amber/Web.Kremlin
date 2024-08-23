@@ -326,9 +326,13 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     }
 
     makeImportAsync(ref: ModuleRef, isDefault: boolean = false) {
-        assert(!(ref instanceof NodeModule));  /** @todo not supported */
-        var key = ref.normalize().canonicalName;
-        return `kremlin.import('${key}', ${isDefault})`;
+        if (ref instanceof NodeModule) {
+            return `import('${ref.name}')`;  /** @todo configure by target  */
+        }
+        else {
+            var key = ref.normalize().canonicalName;
+            return `kremlin.import('${key}', ${isDefault})`;
+        }
     }
 
     updateReferences(name: string, expr: string): Subst<AcornTypes.Identifier>[] {
