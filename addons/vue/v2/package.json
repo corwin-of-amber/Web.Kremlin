@@ -1,5 +1,5 @@
 {
-    "name": "vue2~kremlin",
+    "name": "@~kremlin/addon-vue2",
     "version": "0.2.0",
     "dependencies": {
         "@vue/component-compiler": "^4.2.4",

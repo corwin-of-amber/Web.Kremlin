@@ -1,5 +1,5 @@
 {
-    "name": "vue3~kremlin",
+    "name": "@~kremlin/addon-vue3",
     "version": "0.3.0",
     "dependencies": {
         "@vue/compiler-sfc": "^3.2.31"
