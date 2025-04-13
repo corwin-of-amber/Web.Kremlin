@@ -74,7 +74,7 @@ class Kremlin {
         this.watcher = watcher;
         
         if (proj.window.addEventListener)
-            proj.window.addEventListener('unload', () => watcher.close());
+            proj.window.addEventListener('beforeunload', () => watcher.close());
     }
 
     unwatch() {
