@@ -140,12 +140,26 @@ class GroupedModules extends ModuleRef {
     get id() { return this.main.id; }
     get canonicalName() { return this.main.canonicalName; }
     normalize() { return this.main; }
+
+    /** 
+     * References to companion modules within a group
+     * are marked with a leading `*`.
+     */
+    static isCompanion(name: string) { return !!name.match(/^\*/); }
+    static companion(name: string) { return new SourceFile(name.replace(/^\*/, '')); }
 }
 
 class NodeModule extends ModuleRef {
     name: string
-    constructor(name: string) { super(); this.name = name; }
+    constructor(name: string) {
+        super();
+        this.name = name.replace(/^node:/, '');
+    }
     get canonicalName() { return `node://${this.name}`; }
+
+    static isExplicit(name: string): boolean {
+        return !!name.match(/^node:/);
+    }
 }
 
 class ShimModule extends ModuleRef {

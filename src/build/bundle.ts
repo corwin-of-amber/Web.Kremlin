@@ -113,8 +113,10 @@ class AcornCrawl extends InEnvironment {
         if (m.isLoose) this.env.report.warn(null, "module parsed loosely due to syntax errors.");
 
         var lookup = (u: acorn.Node, src: string) => {
-            if (m.isExternalRef(u)) return new NodeModule(src);
-            if (src.startsWith('*')) return new SourceFile(src.slice(1)); // special ref for companion modules in grouped
+            if (NodeModule.isExplicit(src) || m.isExternalRef(u))
+                return new NodeModule(src);
+            if (GroupedModules.isCompanion(src))
+                return GroupedModules.companion(src);
             try {
                 /** @todo This setting will prioritize substitute modules, then
                  * locally installed modules, then intrinsic modules.

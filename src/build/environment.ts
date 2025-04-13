@@ -151,7 +151,8 @@ class NodeJSPolicy extends PolicyBase {
     getMainFilenames(packageJson: any) {
         let rv = resolve.exports(packageJson, '.') || [];
         return [...rv, packageJson.module, packageJson.main,
-                packageJson.exports?.node?.import, 'index']
+                packageJson.exports?.node?.import /** @todo unneeded? */,
+                'index']
     }
 
     getAliasFields(packageJson: any) {
@@ -165,7 +166,9 @@ class NodeJSPolicy extends PolicyBase {
 
 class BrowserPolicy extends PolicyBase {
     getMainFilenames(packageJson: any) {
-        return [packageJson.browser, packageJson.module, packageJson.main, 'index']
+        let rv = resolve.exports(packageJson, '.', {browser: true}) || [];
+        return [...rv, packageJson.browser, packageJson.module,
+                packageJson.main, 'index']
     }
 
     getAliasFields(packageJson: any) {
