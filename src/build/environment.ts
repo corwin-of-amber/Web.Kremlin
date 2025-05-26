@@ -64,7 +64,8 @@ class BrowserShims extends Library {
         super();
         var path = this.getPath();
         this.modules = ['path', 'events', 'assert', 'util', 'zlib', 'stream',
-                        'url', 'querystring', 'crypto', 'buffer', 'process']
+                        'url', 'querystring', 'crypto', 'buffer', 'process',
+                        'vm']
             .map(m => {
                 try { return new ShimModule(m, path.lookup(m)); }
                 catch (e) { if (!(e instanceof FileNotFound)) throw e; } 
@@ -83,7 +84,7 @@ class BrowserShims extends Library {
 
     static readonly ALTNAMES = {
         zlib: 'browserify-zlib', crypto: 'crypto-browserify',
-        stream: 'stream-browserify'
+        stream: 'stream-browserify', vm: 'vm-browserify'
     }
 
     static readonly ALTPATHS = [
