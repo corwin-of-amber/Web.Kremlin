@@ -151,9 +151,9 @@ class GroupedModules extends ModuleRef {
 
 class NodeModule extends ModuleRef {
     name: string
-    constructor(name: string) {
+    constructor(name: string, trim: boolean = false) {
         super();
-        this.name = name.replace(/^node:/, '');
+        this.name = trim ? name.replace(/^node:/, '') : name;
     }
     get canonicalName() { return `node://${this.name}`; }
 
