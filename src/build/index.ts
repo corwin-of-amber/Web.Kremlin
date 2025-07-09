@@ -90,7 +90,7 @@ class Builder {
     }
 
     deploy(modules: Map<string, VisitResult>) {
-        let proj = this.proj, console = this.console;
+        let proj = this.proj;
 
         var deploy = new Deployment(resolve(proj, proj.buildDir)).in(this.env);
 
@@ -102,7 +102,7 @@ class Builder {
             deploy.addVisitResult(m);
         }
 
-        if (this.opts.mode === 'prod') deploy.squelch();
+        if (this.opts.mode === 'prod') this.production(modules, deploy);
 
         deploy.wrapUp(this.proj.main);
 
@@ -110,6 +110,12 @@ class Builder {
         for (let m of modules.values()) {
             this.env.report.summary(m.origin, m.compiled);
         }
+    }
+
+    production(modules: Map<string, VisitResult>, deploy: Deployment) {
+        let entryp = this.entryp.flatMap(ep =>
+            (modules.get(ep.id)?.deps ?? []).map(d => d.target));
+        deploy.squelch(entryp);
     }
 
     isOk() {

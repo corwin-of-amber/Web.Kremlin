@@ -18,6 +18,8 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     scripts: parse5.DefaultTreeElement[]
     outDir?: string  /* location of intended output - for relative urls */
 
+    inlineScripts = true
+
     constructor(text: string, dir?: string) {
         super();
         this.dir = dir;
@@ -73,7 +75,7 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     processScript(script: parse5.DefaultTreeElement, ref: ModuleRef, globals?: GlobalDependencies) {
         var loc = script.sourceCodeLocation;   assert(loc);
         var at = {start: loc.startOffset, end: loc.endOffset};
-        return {text: this.makeInitScript(ref, globals), ...at};
+        return {text: '\n' + this.makeInitScript(ref, globals), ...at};
     }
 
     *makeIncludeTags(deps: ModuleDependency[]) {
@@ -103,13 +105,19 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     }
 
     makeScriptStub(ref: ModuleRef, content: any = {}) {
-        return `<script>kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };</script>`;
+        return this._inlineJs(
+            `kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };`);
     }
 
     makeInitScript(ref: ModuleRef, globals?: GlobalDependencies) {
         var key = ref.normalize().canonicalName,
             globmap = this.makeGlobals(globals);
-        return `\n<script>kremlin.main('${key}', ${globmap});</script>`;
+        return this._inlineJs(`kremlin.main('${key}', ${globmap});`);
+    }
+
+    _inlineJs(js: string) {
+        return this.inlineScripts ? `<script>${js}</script>`
+            : `<!-- ${js} -->`;
     }
 
     makeGlobals(globals?: GlobalDependencies) {

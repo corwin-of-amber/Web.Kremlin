@@ -6,6 +6,7 @@ import findUp from 'find-up';   /* @kremlin.native */
 import * as parse5 from 'parse5';
 
 import { CaseInsensitiveSet } from '../infra/keyed-collections';
+import { TargetDefinition } from '../project';
 import { InEnvironment } from './environment';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
          BinaryAsset, ModuleDependency } from './modules';
@@ -166,24 +167,18 @@ class Deployment extends InEnvironment {
     /**
      * Concatenates all JS modules so that they can be included in a single `<script>`
      * tag.
-     * @todo this is too similar to `makeEntryJS`; note that it does not
-     *   contain the init script (`entryPoints` is set to `[]`).
      */
-    squelch(outputFilename = 'bundle.js') {
+    squelch(entry: ModuleRef[], outputFilename = 'bundle.js') {
         this.flush();
-        var cjs = new ConcatenatedJSModule().in(this.env),
-            deps = new ConcatenatedJSPostprocessor(this, cjs, []).getDeps(),
-            out = this.writeOutput(outputFilename, cjs.process(outputFilename, deps), 'js');
-
-        this.bundle.js = out;
+        this.bundle.js = this.makeEntryJS(entry, outputFilename);
     }
 
-    wrapUp(entries: {input: ModuleRef[], output: string}[]) {
+    wrapUp(entries: TargetDefinition[]) {
         this.flush();
         return [...this.wrapUpIter(entries)];
     }
 
-    *wrapUpIter(entries: {input: ModuleRef[], output: string}[]) {
+    *wrapUpIter(entries: TargetDefinition[]) {
         for (let entry of entries) {
             if (entry.output.endsWith('.html'))
                 yield this.makeEntryHtml(entry.input[0] as SourceFile, entry.output);
@@ -244,6 +239,9 @@ class Deployment extends InEnvironment {
 type Output = SourceFile | BinaryAsset;
 
 
+/**
+ * @todo not so sure about the naming and concept of this class hierarchy
+ */
 class Postprocessor<CU extends CompilationUnit, R> {
     deploy: Deployment
     unit: CU
@@ -297,14 +295,17 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
     constructor(deploy: Deployment, unit: HtmlModule) {
         super(deploy, unit);
         this.scripts = unit.getRefTags();
+
+        if (this.deploy.bundle.js)
+            unit.inlineScripts = false;  /** @todo what about stubs though (e.g. for CSS deps) */
     }
 
     getDeps(): ModuleDependency[] {
         return this.deploy.bundle.js ?
             [
                 this.incDep(this.deploy.include),
-                this.incDep(this.deploy.bundle.js),
-                ...this.mkDeps_(this.deploy.modules).map(d => this.nonJS(d))
+                ...this.mkDeps_(this.deploy.modules).map(d => this.nonJS(d)),
+                this.incDep(this.deploy.bundle.js)
             ].filter(x => x) : super.getDeps();
     }
 
