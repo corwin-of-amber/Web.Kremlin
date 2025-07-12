@@ -87,6 +87,7 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
 
     /** @oops `makeScriptStub`, `require`, `_urlOf`, `_rel` duplicate some content from `HtmlModule` */
     makeScriptStub(ref: ModuleRef, content: any = {}) {
+        if (ref instanceof TransientCode) return '/* transient */';
         return `kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };`;
     }
 

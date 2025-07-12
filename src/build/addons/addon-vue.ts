@@ -105,7 +105,7 @@ class Vue2Compiler extends VueCompiler {
         var parsed = this.tc.parseComponent(source),
             desc = this.sfc.compileToDescriptor(filename, source);
         var out = this.cc.assemble(this.sfc, filename, desc, {}),
-            outFn = path.join(this.outDir, 
+            outFn = path.join(this.outDir, /** @todo use TransientCode instead */
                               this._outputBasename(parsed, filename));
 
         mkdirp.sync(path.dirname(outFn));
@@ -146,14 +146,11 @@ class Vue3Compiler extends VueCompiler {
         
         var out = this.assemble(parsed.descriptor, id, filename);
 
-        var outCss = new SourceFile(
-                path.join(this.outDir, `${this._basename(filename)}-${id}.css`)),
-            outJs = this._output(parsed.descriptor, this.banner +
-                `import '*${outCss.filename}';\n${out.js}`, filename);
-        fs.mkdirSync(path.dirname(outCss.filename), {recursive: true});
-        fs.writeFileSync(outCss.filename, out.css);
+        var outCss = this._outputStyle(parsed.descriptor, out.css, filename),
+            outJs = this._outputScript(parsed.descriptor, this.banner +
+                `import '*${id}.css';\n${out.js}`, filename);
         return new GroupedModules(outJs, {
-            [outCss.filename]: outCss
+            [`*${id}.css`]: outCss
         });
     }
 
@@ -188,13 +185,18 @@ class Vue3Compiler extends VueCompiler {
         return (filename ? path.basename(filename) : 'tmp.vue');
     }
 
-    _output(parsed: SFCDescriptor, content: string, filename?: string): TransientCode {
+    _outputScript(parsed: SFCDescriptor, content: string, filename?: string): TransientCode {
         var script = parsed.script ?? parsed.scriptSetup,  /* could there be both..? */
             lang = script.attrs['lang'] as string,
             type = {'ts': '.ts', 'typescript': '.ts'}[lang] || 'js',
             ext = `.${type}`;
         return new TransientCode(
             content, type, this._basename(filename) + ext);
+    }
+
+    _outputStyle(parsed: SFCDescriptor, content: string, filename?: string): TransientCode {
+        var type = 'css', /** @todo scss? */ ext = `.${type}`;
+        return new TransientCode(content, type, this._basename(filename) + ext);
     }
 
     /**

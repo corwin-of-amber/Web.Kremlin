@@ -18,13 +18,14 @@ class AcornCrawl extends InEnvironment {
     modules: {
         intrinsic: Map<string, ModuleRef>
         substitute: Map<string, ModuleRef>
+        companion: Map<string, ModuleRef>,
         visited: Map<string, VisitResult>
     }
 
     constructor() {
         super();
         this.modules = {intrinsic: new Map, substitute: new Map,
-                        visited: new Map};
+                        companion: new Map, visited: new Map};
     }
 
     in(env: Environment) {
@@ -61,7 +62,9 @@ class AcornCrawl extends InEnvironment {
 
     safely(ref: ModuleRef, name: string, context: string, f: () => VisitResult): VisitResult {
         try {
-            return f();
+            let visit = f();
+            visit.origin = ref;
+            return visit;
         }
         catch (e) {
             this.env.report.error(ref, e);
@@ -115,13 +118,12 @@ class AcornCrawl extends InEnvironment {
         var lookup = (u: acorn.Node, src: string) => {
             if (NodeModule.isExplicit(src) || m.isExternalRef(u))
                 return new NodeModule(src);
-            if (GroupedModules.isCompanion(src))
-                return GroupedModules.companion(src);
             try {
                 /** @todo This setting will prioritize substitute modules, then
                  * locally installed modules, then intrinsic modules.
                  *  Is it ok? Should this be configurable? */
-                return this.modules.substitute.get(src) || sp.lookup(src);
+                return this.modules.substitute.get(src) ??
+                       this.modules.companion.get(src) ?? sp.lookup(src);
             }
             catch (e) {
                 return this.modules.intrinsic.get(src) 
@@ -191,8 +193,7 @@ class AcornCrawl extends InEnvironment {
 
     visitSourceFile(ref: SourceFile, opts: VisitOptions = {}): VisitResult {
         this.env.report.visit(ref);
-        return {...this.safely(ref, '?', ref.filename, () => this.visitFile(ref, opts)),
-                origin: ref};
+        return this.safely(ref, '?', ref.filename, () => this.visitFile(ref, opts));
     }
 
     visitPackageDir(ref: PackageDir, opts: VisitOptions = {}): VisitResult {
@@ -233,7 +234,11 @@ class AcornCrawl extends InEnvironment {
     }
 
     visitGroupedModules(ref: GroupedModules, opts: VisitOptions = {}): VisitResult {
-        /** @todo use companions in dependency resolution */
+        // Companion modules are added to the `companion` map.
+        // This is separate from `substitute` for now (might be 
+        // able to use it to forcefully override a companion)
+        for (let [k, v] of Object.entries(ref.companions))
+            this.modules.companion.set(k, v);
         return this.visitModuleRef(ref.main, opts);
     }
 

@@ -11,6 +11,7 @@ if (typeof process !== 'undefined' && process.versions['nw'])
     process.versions['electron'] = 'FAKE (hack for sass@1.52.3:sass.dart.js)';
 
 
+import path from 'path';
 import sass from 'sass';
 
 import { ModuleRef, TransientCode } from '../modules';
@@ -22,7 +23,7 @@ class SASSCompiler implements Transpiler {
 
     compileFile(filename: string) {
         let out = sass.compile(filename, {sourceMap: true, sourceMapIncludeSources: true});
-        return new TransientCode(out.css, 'css');
+        return new TransientCode(out.css, 'css', path.basename(filename) + '.css');
     }
 
     compileSource(source: string, filename?: string): ModuleRef {

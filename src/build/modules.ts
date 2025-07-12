@@ -140,13 +140,6 @@ class GroupedModules extends ModuleRef {
     get id() { return this.main.id; }
     get canonicalName() { return this.main.canonicalName; }
     normalize() { return this.main; }
-
-    /** 
-     * References to companion modules within a group
-     * are marked with a leading `*`.
-     */
-    static isCompanion(name: string) { return !!name.match(/^\*/); }
-    static companion(name: string) { return new SourceFile(name.replace(/^\*/, '')); }
 }
 
 class NodeModule extends ModuleRef {

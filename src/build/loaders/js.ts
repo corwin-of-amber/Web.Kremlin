@@ -8,7 +8,7 @@ import acornGlobals from 'acorn-globals';
 
 import { TextSource } from '../bundle';
 import { InEnvironment } from '../environment';
-import { ModuleRef, SourceFile, NodeModule, ModuleDependency } from '../modules';
+import { ModuleRef, SourceFile, NodeModule, ModuleDependency, TransientCode } from '../modules';
 import { CompilationUnit, CompilationUnitStub } from '../compilation-unit';
 
 
@@ -318,6 +318,9 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     makeRequire(ref: ModuleRef, isDefault: boolean = false) {
         if (ref instanceof NodeModule) {
             return `require('${ref.name}')`;  /** @todo configure by target  */
+        }
+        else if (ref instanceof TransientCode) {
+            return `{}`;
         }
         else {
             var key = ref.normalize().canonicalName;

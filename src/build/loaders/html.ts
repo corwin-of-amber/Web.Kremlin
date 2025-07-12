@@ -6,7 +6,7 @@ import parse5Walk from 'walk-parse5'
 import { Environment, InEnvironment } from '../environment';
 import type { CompilationUnit } from '../compilation-unit';
 import { GlobalDependencies, TextSource } from '../bundle';
-import { SourceFile, ModuleRef, ModuleDependency } from '../modules';
+import { SourceFile, ModuleRef, ModuleDependency, TransientCode } from '../modules';
 
 
 class HtmlModule extends InEnvironment implements CompilationUnit {
@@ -105,6 +105,7 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
     }
 
     makeScriptStub(ref: ModuleRef, content: any = {}) {
+        if (ref instanceof TransientCode) return '<!-- transient -->';
         return this._inlineJs(
             `kremlin.m['${ref.canonicalName}'] = (mod) => { mod.exports = ${JSON.stringify(content)}; };`);
     }

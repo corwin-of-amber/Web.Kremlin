@@ -28,7 +28,7 @@ class TypeScriptCompiler implements Transpiler {
     compileSource(source: string, filename: string) {
         this.load();
         var out = this.cc.transpileModule(source, this.getConfigFor(filename));
-        return new TransientCode(out.outputText, 'js');
+        return new TransientCode(out.outputText, 'js', path.basename(filename) + '.js');
     }
 
     getConfigFor(filename: string) {

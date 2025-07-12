@@ -9,7 +9,7 @@ import { CaseInsensitiveSet } from '../infra/keyed-collections';
 import { TargetDefinition } from '../project';
 import { InEnvironment } from './environment';
 import { ModuleRef, PackageDir, SourceFile, StubModule, NodeModule,
-         BinaryAsset, ModuleDependency } from './modules';
+         BinaryAsset, ModuleDependency, TransientCode} from './modules';
 import { CompilationUnit } from './compilation-unit';
 import { VisitResult } from './bundle';
 import { PassThroughModule, ConcatenatedJSModule } from './loaders/basic';
@@ -31,9 +31,11 @@ class DeployModule {
     }
 
     get targets(): {body: () => string | Uint8Array, contentType: string}[] {
-        if (this.compiled)
-            return [{body: () => this.compiled.process(this.ref.canonicalName, this.deps),
+        if (this.compiled) {
+            let key = this.ref instanceof TransientCode ? undefined : this.ref.canonicalName;
+            return [{body: () => this.compiled.process(key, this.deps),
                      contentType: this.compiled.contentType}];
+        }
         else
             return [];
     }
@@ -41,8 +43,8 @@ class DeployModule {
     get filename(): string {
         if (this.ref instanceof PackageDir)
             assert(0);
-        else if (this.ref instanceof SourceFile)
-            return path.basename(this.ref.filename);
+        else if (this.ref instanceof SourceFile || this.ref instanceof TransientCode)
+            return path.basename(this.ref.filename ?? 'transient');
         else if (this.ref instanceof StubModule || this.ref instanceof NodeModule)
             return path.join('stubs', this.ref['name']);
     }
@@ -66,6 +68,7 @@ class Deployment extends InEnvironment {
     }
 
     addVisitResult(vis: VisitResult) {
+        //console.log(vis)
         this.add(new DeployModule(vis.origin.normalize(),
                                   vis.compiled, vis.deps));
         for (let [k, v] of vis.globals?.entries() ?? []) {
@@ -110,6 +113,7 @@ class Deployment extends InEnvironment {
     }
 
     prewrite(dmod: DeployModule) {
+        console.log(dmod);
         var outfn = dmod.filename;
         dmod.output ??= dmod.targets.map(({body, contentType}) =>
             new SourceFile(path.join(this.outDir, this.newFilename(outfn, contentType)), null, contentType));
@@ -320,6 +324,7 @@ class HtmlPostprocessor extends Postprocessor<HtmlModule, HtmlRef> {
 
     referenceOf(m: DeployModule): HtmlRef {
         /** @todo this is too brittle */
+        if (m.ref instanceof TransientCode) return undefined;
         var cn = m.ref.canonicalName,
             lu = this.scripts.find(({path}) => cn.endsWith(path));
         return lu && lu.tag;
