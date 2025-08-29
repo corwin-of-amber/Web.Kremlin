@@ -68,7 +68,6 @@ class Deployment extends InEnvironment {
     }
 
     addVisitResult(vis: VisitResult) {
-        //console.log(vis)
         this.add(new DeployModule(vis.origin.normalize(),
                                   vis.compiled, vis.deps));
         for (let [k, v] of vis.globals?.entries() ?? []) {
@@ -113,7 +112,6 @@ class Deployment extends InEnvironment {
     }
 
     prewrite(dmod: DeployModule) {
-        console.log(dmod);
         var outfn = dmod.filename;
         dmod.output ??= dmod.targets.map(({body, contentType}) =>
             new SourceFile(path.join(this.outDir, this.newFilename(outfn, contentType)), null, contentType));

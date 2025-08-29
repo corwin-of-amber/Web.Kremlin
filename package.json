@@ -55,6 +55,7 @@
     "build": "node build/kremlin/cli.js --node src/cli.ts src/plug.ts",
     "build+gui": "node build/kremlin/cli.js --node index.html src/cli.ts src/plug.ts",
     "watch": "node build/kremlin/cli.js --node --watch src/cli.ts src/plug.ts",
+    "dist": "mkdir -p dist && cd dist && npm pack ../addons/vue/v2 ../addons/vue/v3 ..",
     "start": "nw .&"
   },
   "devDependencies": {
