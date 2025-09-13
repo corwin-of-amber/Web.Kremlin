@@ -93,10 +93,10 @@ class SearchPath {
     }
 
     static *_ancestry(dir: string) {
-        var d = dir;
+        var d = dir, p: string = undefined;
         yield d;
-        while (d != '.' && d != '/') {
-            d = path.dirname(d);
+        while (d != '.' && d != p) {
+            [d, p] = [path.dirname(d), d];
             yield d;
         }
     }
