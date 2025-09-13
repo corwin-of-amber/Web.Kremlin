@@ -2,6 +2,7 @@
 import commander from 'commander';
 import type { ProjectDefinition } from './project';
 import _ from './plug';
+import { create } from './scaffold/create';
 
 async function command(argv: string[]) {
     var prog = commander
@@ -20,6 +21,9 @@ async function command(argv: string[]) {
         .option('-m, --mac', "create a `.app` bundle for macOS")
         .option('--nw <dir>', "path to nwjs (needs to contain `nwjs.app`)")
         .action(launcher);
+
+    prog.command('create')
+        .action(() => { _.build(create()); });
 
     await prog.parseAsync(argv);
 }

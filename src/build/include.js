@@ -44,7 +44,11 @@ var kremlin = {m: {}, loaded: {}, debug: false,
             this.global.require = nm => { console.warn(`require(${nm})`); return {}; }
         if (typeof __filename == 'undefined') this.global.__filename = '';
         if (typeof __dirname  == 'undefined') this.global.__dirname = '';
-    },
+        this.meta = {
+            url: typeof __dirname == 'undefined' ? '' 
+                  : `file://${__dirname}/${__filename ?? ''}`
+          };
+      },
     main(entry, globals = {}) {
         Object.assign(this.global, globals);
         if (!Array.isArray(entry)) entry = [entry];

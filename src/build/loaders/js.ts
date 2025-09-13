@@ -209,7 +209,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 return this.processExport(exp, dep && dep.target);
             }),
             sourcemap = this.sourcemap ? this.processSourceMap(this.sourcemap) : [],
-            metas = this.metas.map(mp => [[mp, '__todo_metavar']]),
+            metas = this.metas.map(mp => [[mp, 'kremlin.meta']]),
 
             prog = TextSource.interpolate(this.text, 
                 [].concat(...imports, ...requires, ...exports, sourcemap, ...metas)
