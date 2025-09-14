@@ -204,15 +204,16 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 var dep = deps.find(d => d.source === req);
                 return dep ? this.processRequire(req, dep.target) : [];
             }),
+            {renamed, renames} = this.renamedReferences(imports),
             exports = this.exports.map(exp => {
                 var dep = deps.find(d => d.source === exp);  // for `export .. from`
-                return this.processExport(exp, dep && dep.target);
+                return this.processExport(exp, dep && dep.target, renamed);
             }),
             sourcemap = this.sourcemap ? this.processSourceMap(this.sourcemap) : [],
             metas = this.metas.map(mp => [[mp, 'kremlin.meta']]),
 
             prog = TextSource.interpolate(this.text, 
-                [].concat(...imports, ...requires, ...exports, sourcemap, ...metas)
+                [].concat(...imports, ...requires, ...exports, ...renames, sourcemap, ...metas)
                 .map(([node, text]) => ({...node, text})));
 
         prog = this.postprocess(prog);
@@ -227,7 +228,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     }
 
     processImportStmt(imp: AcornTypes.ImportDeclaration, ref: ModuleRef): Subst<AcornTypes.ImportDeclaration | AcornTypes.Identifier>[] {
-        var lhs: string, refs: Subst<AcornTypes.Identifier>[] = [], isDefault = false;
+        var lhs: string, rename: Rename[] = undefined, isDefault = false;
         if (imp.specifiers.length == 1 && 
             (imp.specifiers[0].type === 'ImportDefaultSpecifier'
              || imp.specifiers[0].type === 'ImportNamespaceSpecifier')) {
@@ -237,14 +238,13 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         }
         else {
             lhs = this._freshVar();
-            for (let impspec of imp.specifiers) {
-                let local = impspec.local.name, 
-                    imported = impspec.imported?.name || 'default';
-                refs.push(...this.updateReferences(local, `${lhs}.${imported}`));
-            }
+            rename = imp.specifiers.map(({local, imported}) => ({
+                from: local.name,
+                to: `${lhs}.${imported?.name || 'default'}`
+            }));
         }
-        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`] as Subst<AcornTypes.ImportDeclaration | AcornTypes.Identifier>]
-               .concat(refs);
+        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`, rename]] as
+                    Subst<AcornTypes.ImportDeclaration | AcornTypes.Identifier>[];
     }
 
     processImportExpr(imp: AcornTypes.ImportExpression, ref: ModuleRef): Subst<AcornTypes.ImportExpression>[] {
@@ -256,7 +256,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         return [[req, this.makeRequire(ref)]];
     }
 
-    processExport(exp: AcornTypes.ExportDeclaration, ref: ModuleRef): Subst<Loc>[] {
+    processExport(exp: AcornTypes.ExportDeclaration, ref: ModuleRef, renamed: Map<string, string>): Subst<Loc>[] {
         var locals: (string | [string, string])[] = [], rhs: string,
             is = AcornUtils.is, d = exp.declaration;
 
@@ -277,7 +277,8 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 for (let expspec of exp.specifiers) {
                     assert(expspec.type === 'ExportSpecifier');
                     let local = expspec.local.name, exported = expspec.exported.name;
-                    /** @todo check if `local` is an imported identifier */
+                    // check if `local` is an imported identifier
+                    local = renamed.get(local) ?? local;
                     locals.push((local == exported) ? local :
                         isExportFrom ? [exported, local] : `${exported}:${local}`);
                 }
@@ -338,6 +339,14 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         }
     }
 
+    renamedReferences<T extends Loc>(imports: Subst<T>[][]) {
+        let rns = imports.flatMap(e => e.flatMap(e => e[2] ?? []));
+        return {
+            renamed: new Map<string, string>(rns.map(rn => [rn.from, rn.to])),
+            renames: rns.map(rn => this.updateReferences(rn.from, rn.to))
+        };
+    }
+
     updateReferences(name: string, expr: string): Subst<AcornTypes.Identifier>[] {
         var refs: Subst<AcornTypes.Identifier>[] = [];
         for (let refnode of this.vars.globals.get(name) || []) {
@@ -394,8 +403,8 @@ type SourceMapping = {
 
 type Loc = {start: number, end: number};
 
-type Subst<T extends Loc = Loc> = [T, string]
-
+type Subst<T extends Loc = Loc> = [T, string, Rename[]?]
+type Rename = {from: string, to: string}
 
 declare class RequireInvocation extends AcornTypes.CallExpression {
     arguments: AcornTypes.Literal[]

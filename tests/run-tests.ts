@@ -17,6 +17,10 @@ function mktempdir() {
     return tmpdir;
 }
 
+const BUNDLES = {
+    'all': 'import-export/export-decl.js import-export/export-default.js import-export/export-from.js import-export/export-imported.js import-export/import-multiple.js import-export/import-named.js import-export/import-stub.js import-export/index.js'
+}
+
 async function main() {
     const tmpdir = mktempdir();
 
@@ -33,7 +37,10 @@ async function main() {
         .arguments('<tests>')
     let o = prog.parse();
 
-    for (let testFn of o.args) {
+    let tests = o.args.flatMap(name =>
+        Object.hasOwn(BUNDLES, name) ? BUNDLES[name].split(/\s+/) : [name]);
+
+    for (let testFn of tests) {
         await runTest(testFn);
     }
 }

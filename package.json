@@ -72,7 +72,8 @@
   ],
   "kremlin": {
     "ignore": [
-      "tmp"
+      "tmp",
+      "tests"
     ]
   },
   "app": {

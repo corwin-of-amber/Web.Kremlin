@@ -1,3 +1,3 @@
-import { ClassExport } from './export-decl';
+import { isArray, ClassExport } from './export-decl';
 
-export { ClassExport as S }
+export { isArray, ClassExport as S }
