@@ -5,12 +5,10 @@ import findUp from 'find-up';   /* @kremlin.native */
 import { cp_r } from '../package/shutil';
 
 
-const TEMPLATE_DIR = 'data/templates'
+const TEMPLATE_DIR = 'data/templates';
 
 function create(dir = '.') {
-    let kremlinRoot = path.dirname(
-            findUp.sync('package.json', {cwd: import.meta.url.replace(/^file:\/\//, '')})),
-        fromDir = path.join(kremlinRoot, TEMPLATE_DIR, 'bare'),
+    let fromDir = path.join(kremlinRoot(), TEMPLATE_DIR, 'bare'),
         toDir = dir;
 
     fs.mkdirSync(toDir, {recursive: true});
@@ -24,6 +22,13 @@ function create(dir = '.') {
 
     return {main: ['index.html']};
 }
+
+function kremlinRoot() {
+    return path.dirname(findUp.sync('package.json',
+        {cwd: kremlin.meta.url.replace(/^file:\/\//, '')}));
+}
+
+declare var kremlin: {meta: {url: string}};  // using `kremlin` directly to allow this file to also compile as `module: commonjs`.
 
 
 export { create }
