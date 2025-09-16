@@ -178,7 +178,12 @@ class Vue3Compiler extends VueCompiler {
     }
 
     override get banner() {
-        return super.banner + ' window.__VUE_OPTIONS_API__ = window.__VUE_PROD_DEVTOOLS__ = true;'
+        return super.banner + ' ' + this._flags;
+    }
+
+    get _flags() {
+        return 'window.__VUE_OPTIONS_API__ = window.__VUE_PROD_DEVTOOLS__ = true;'
+                + 'window.__VUE_PROD_HYDRATION_MISMATCH_DETAILS__ = false;';
     }
 
     _basename(filename?: string) {
