@@ -278,7 +278,8 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                     assert(expspec.type === 'ExportSpecifier');
                     let local = expspec.local.name, exported = expspec.exported.name;
                     // check if `local` is an imported identifier
-                    local = renamed.get(local) ?? local;
+                    if (!isExportFrom)
+                        local = renamed.get(local) ?? local;
                     locals.push((local == exported) ? local :
                         isExportFrom ? [exported, local] : `${exported}:${local}`);
                 }
