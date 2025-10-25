@@ -29,8 +29,12 @@ class PackageDir extends ModuleRef {
     get canonicalName() {
         var m = this.manifest;
         return m.name && m.version ? `${m.name}@${m.version}` :
-               this.parent ? `${this.parent.canonicalName}:${path.relative(this.parent.dir, this.dir)}`
-                           : this.dir;
+               this.parent ? `${this.parent.canonicalName}:${slashify(this.relativePath)}`
+                           : slashify(this.dir);
+    }
+    get relativePath() {
+        let pkg = this.parent;
+        return pkg ? path.relative(pkg.dir, this.dir) : this.dir;
     }
     get manifest() {
         try {
@@ -93,8 +97,8 @@ class SourceFile extends ModuleRef {
     }
     get canonicalName() {
         let pkg = this.package;
-        return pkg ? `${pkg.canonicalName}:${path.relative(pkg.dir, this.filename)}`
-             : this.filename;
+        return pkg ? `${pkg.canonicalName}:${slashify(this.relativePath)}`
+                   : slashify(this.filename);
     }
     get relativePath() {
         let pkg = this.package;
@@ -205,6 +209,10 @@ class MainFileNotFound extends ModuleResolutionError {
     }
 }
 
+
+function slashify(s: string) {
+    return s.replaceAll('\\', '/'); /* for canonical names */
+}
 
 
 export { ModuleRef, SourceFile, PackageDir, TransientCode, BinaryAsset,
