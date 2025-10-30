@@ -1,0 +1,9 @@
+{
+    "name": "kremlin-vue-basic",
+    "version": "0.1.0",
+    "main": "build/kremlin/index.html",
+    "dependencies": {
+        "vue": "^3.5.22",
+        "vue-facing-decorator": "^4.0.1"
+    }
+}

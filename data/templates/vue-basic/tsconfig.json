@@ -1,0 +1,12 @@
+{
+    "compilerOptions": {
+        "target": "esnext",
+        "module": "esnext",
+        "lib": ["esnext", "dom", "dom.iterable"],
+        "moduleResolution": "node",
+        "allowSyntheticDefaultImports": true,
+        "esModuleInterop": true,
+        "downlevelIteration": true,
+        "experimentalDecorators": true
+    }
+}
