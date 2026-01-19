@@ -9,4 +9,5 @@
    so the results can be checked for sanity.
  * [qa] a testing fixture that creates an empty project and makes sure
    Kremlin is installable from the dist bundles, incl. running the tests.
- * [addons] [vue] `__VUE_PROD_HYDRATION_MISMATCH_DETAILS__`
+ * [bugfix] URL suffixes occurring in `url('...#hey')` should be stripped
+   before searching and re-added later.

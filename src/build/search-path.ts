@@ -39,7 +39,7 @@ class SearchPath {
 
         for (var ext of ['', ...this.extensions]) {
             try {
-                var entry = cwd.get(basename + ext);
+                let entry = cwd.get(basename + ext);
                 if (entry.isFile()) return new SourceFile(entry.path);
             }
             catch { }
@@ -120,8 +120,12 @@ namespace SearchPath {
 
         get(name: string) {
             if (name === '.') return this;
-            else return new DirCursor(path.join(this.path, name),
-                Object.hasOwn(this.aliases, name) ? aobj(this.aliases[name]) : {});
+            else {
+                /** @note the '.' alias may refer to a file, which is useless in this case */
+                let cwd = this.isDirectory() ? this.path : this.phys;
+                return new DirCursor(path.join(cwd, name),
+                    Object.hasOwn(this.aliases, name) ? aobj(this.aliases[name]) : {});
+            }
         }
 
         follow(relPath: string) {
