@@ -319,7 +319,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     makeRequire(ref: ModuleRef, isDefault: boolean = false) {
         if (ref instanceof NodeModule) {
-            return `require('${ref.name}')`;  /** @todo configure by target  */
+            return `kremlin.require_node('${ref.name}')`;  /** @todo configure by target  */
         }
         else if (ref instanceof TransientCode) {
             return `{}`;

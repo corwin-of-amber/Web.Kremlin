@@ -21,6 +21,10 @@ var kremlin = {m: {}, loaded: {}, debug: false,
             Object.assign(c, this.require(k));  // what if c is not an object?
         return c;
     },
+    require_node(nm) { // (stub) replaced during `startup` as is appropriate
+        console.warn(`require(${nm})`);
+        return {};
+    },
     async import(k, isDefault) {
         return this.require(k, isDefault);
     },
@@ -41,14 +45,16 @@ var kremlin = {m: {}, loaded: {}, debug: false,
             this.global.process = {env: {}, browser: true};
         else if (win) process.browser = true;  /* for NWjs */
         if (typeof require === 'undefined')
-            this.global.require = nm => { console.warn(`require(${nm})`); return {}; }
+             this.global.require = this.require_node;
+        else
+            this.require_node = require;
         if (typeof __filename == 'undefined') this.global.__filename = '';
         if (typeof __dirname  == 'undefined') this.global.__dirname = '';
         this.meta = {
             url: typeof __dirname == 'undefined' ? '' 
                   : `file://${__dirname}/${__filename ?? ''}`
-          };
-      },
+        };
+    },
     main(entry, globals = {}) {
         Object.assign(this.global, globals);
         if (!Array.isArray(entry)) entry = [entry];

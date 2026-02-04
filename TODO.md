@@ -9,5 +9,6 @@
    so the results can be checked for sanity.
  * [qa] a testing fixture that creates an empty project and makes sure
    Kremlin is installable from the dist bundles, incl. running the tests.
+ * [feature] CSS crossrefs. `@import` and `<style href="..">`.
  * [bugfix] URL suffixes occurring in `url('...#hey')` should be stripped
    before searching and re-added later.
