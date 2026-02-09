@@ -7,6 +7,7 @@ import { Environment, InEnvironment } from '../environment';
 import type { CompilationUnit } from '../compilation-unit';
 import { GlobalDependencies, TextSource } from '../bundle';
 import { SourceFile, ModuleRef, ModuleDependency, TransientCode } from '../modules';
+import { JSGlobals } from './js';
 
 
 class HtmlModule extends InEnvironment implements CompilationUnit {
@@ -112,22 +113,13 @@ class HtmlModule extends InEnvironment implements CompilationUnit {
 
     makeInitScript(ref: ModuleRef, globals?: GlobalDependencies) {
         var key = ref.normalize().canonicalName,
-            globmap = this.makeGlobals(globals);
+            globmap = new JSGlobals(globals).js();
         return this._inlineJs(`kremlin.main('${key}', ${globmap});`);
     }
 
     _inlineJs(js: string) {
         return this.inlineScripts ? `<script>${js}</script>`
             : `<!-- ${js} -->`;
-    }
-
-    makeGlobals(globals?: GlobalDependencies) {
-        /** @oops this is specific to `Buffer` */
-        let buf = globals?.get('Buffer');
-        if (buf)
-            return `{Buffer: kremlin.require('${buf.normalize().canonicalName}').Buffer}`;
-        else
-            return undefined;
     }
 
     postprocess(text: string) {

@@ -6,7 +6,7 @@ import * as acornLoose from 'acorn-loose';
 import * as acornWalk from 'acorn-walk';
 import acornGlobals from 'acorn-globals';
 
-import { TextSource } from '../bundle';
+import { TextSource, GlobalDependencies } from '../bundle';
 import { InEnvironment } from '../environment';
 import { ModuleRef, SourceFile, NodeModule, ModuleDependency, TransientCode } from '../modules';
 import { CompilationUnit, CompilationUnitStub } from '../compilation-unit';
@@ -552,4 +552,19 @@ class StubJSModule extends CompilationUnitStub {
 }
 
 
-export { AcornJSModule, StubJSModule }
+class JSGlobals {
+    constructor(private globals?: GlobalDependencies) {
+    }
+
+    js() {
+        /** @oops this is specific to `Buffer` */
+        let buf = this.globals?.get('Buffer');
+        if (buf)
+            return `{Buffer: kremlin.require('${buf.normalize().canonicalName}').Buffer}`;
+        else
+            return undefined;
+    }
+}
+
+
+export { AcornJSModule, StubJSModule, JSGlobals }

@@ -2,7 +2,7 @@ import path from 'path';
 import { InEnvironment } from '../environment';
 import type { CompilationUnit } from '../compilation-unit';
 import type { GlobalDependencies } from '../bundle';
-import type { AcornJSModule } from './js';
+import { JSGlobals, type AcornJSModule } from './js';
 import { ModuleRef, ModuleDependency, SourceFile, TransientCode } from '../modules';
 
 
@@ -92,9 +92,9 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     }
 
     main(deps: ModuleDependency<AcornJSModule>[], globals?: GlobalDependencies) {
-        var keys = deps.map(d => d.target.normalize().canonicalName);
-        /** @todo use `globals` like in HTML */
-        return `{ let c = kremlin.main(${JSON.stringify(keys)}); if (typeof module !== 'undefined') module.exports = c; }`;
+        var keys = deps.map(d => d.target.normalize().canonicalName),
+            globmap = new JSGlobals(globals).js();
+        return `{ let c = kremlin.main(${JSON.stringify(keys)}, ${globmap}); if (typeof module !== 'undefined') module.exports = c; }`;
     }
 
     _urlOf(m: SourceFile) {
