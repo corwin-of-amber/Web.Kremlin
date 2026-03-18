@@ -298,7 +298,9 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         else if (is(exp, 'ExportAllDeclaration')) {  // <- `export * from`
             assert(!!exp.source);
             rhs = this.makeRequire(ref);
-            return [[exp, `kremlin.export(module, ${rhs});`]];
+            let as = exp.exported?.name;
+            return [[exp, as ? `kremlin.export(module, {${as}: ${rhs}});`
+                             : `kremlin.export(module, ${rhs});`]];
         }
         else if (is(exp, 'ExportDefaultDeclaration')) {
             assert(d);
@@ -449,6 +451,7 @@ declare namespace AcornTypes {
     class ExportAllDeclaration extends ExportDeclaration {
         type: "ExportAllDeclaration"
         source?: Literal
+        exported?: Identifier
     }
 
     class ExportDefaultDeclaration extends ExportDeclaration {
@@ -560,9 +563,14 @@ class JSGlobals {
         /** @oops this is specific to `Buffer` */
         let buf = this.globals?.get('Buffer');
         if (buf)
-            return `{Buffer: kremlin.require('${buf.normalize().canonicalName}').Buffer}`;
+            return `{Buffer: ${this.makeRequire(buf)}.Buffer}`;
         else
             return undefined;
+    }
+
+    makeRequire(ref: ModuleRef) {
+        // taking advantage of `makeRequire` actually not requiring `this`...
+        return AcornJSModule.prototype.makeRequire(ref);
     }
 }
 
