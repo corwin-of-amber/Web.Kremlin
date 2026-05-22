@@ -148,11 +148,18 @@ class GroupedModules extends ModuleRef {
 
 class NodeModule extends ModuleRef {
     name: string
-    constructor(name: string, trim: boolean = false) {
+    tags: string[]  /** user-provided attributes for how to resolve the module */
+    constructor(name: string, tags: string[] = []) {
         super();
-        this.name = trim ? name.replace(/^node:/, '') : name;
+        this.name = name;
+        this.tags = tags;
     }
     get canonicalName() { return `node://${this.name}`; }
+
+    trim() {
+        this.name = this.name.replace(/^node:/, '');
+        return this;
+    }
 
     static isExplicit(name: string): boolean {
         return !!name.match(/^node:/);

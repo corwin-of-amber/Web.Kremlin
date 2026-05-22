@@ -171,9 +171,10 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
                 AcornUtils.is(node, 'ExportAllDeclaration')) && !!node.source;
     }
 
-    isExternalRef(node: acorn.Node) {
-        return this._getAssociatedDirectives(node).some(d =>
-            ['native', 'external'].includes(d.name));
+    isExternalRef(node: acorn.Node): string[] {
+        let tags = this._getAssociatedDirectives(node).flatMap(d =>
+            ['native', 'external', 'bundled'].includes(d.name) ? [d.name] : []);
+        return tags.length > 0 ? tags : undefined;
     }
 
     _isShorthandProperty(node: AcornTypes.Identifier) {
@@ -321,7 +322,9 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
 
     makeRequire(ref: ModuleRef, isDefault: boolean = false) {
         if (ref instanceof NodeModule) {
-            return `kremlin.require_node('${ref.name}')`;  /** @todo configure by target  */
+            return ref.tags.includes('bundled')
+                ? `require('${ref.name}')`   /* when inside an existing bundled module (such as AMD) */
+                : `kremlin.require_node('${ref.name}')`;  /** @todo configure by target  */
         }
         else if (ref instanceof TransientCode) {
             return `{}`;

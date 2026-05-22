@@ -116,8 +116,9 @@ class AcornCrawl extends InEnvironment {
         if (m.isLoose) this.env.report.warn(null, "module parsed loosely due to syntax errors.");
 
         var lookup = (u: acorn.Node, src: string) => {
-            if (NodeModule.isExplicit(src) || m.isExternalRef(u))
-                return new NodeModule(src);
+            let extTags = NodeModule.isExplicit(src) ? ['explicit']
+                                                     : m.isExternalRef(u);
+            if (extTags) return new NodeModule(src, extTags);
             try {
                 /** @todo This setting will prioritize substitute modules, then
                  * locally installed modules, then intrinsic modules.
