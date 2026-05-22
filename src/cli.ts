@@ -15,6 +15,8 @@ async function command(argv: string[]) {
         .option('-p, --prod', "production mode (concatenate JS)")
         .option('--node', "target Node.js environment " + 
                           "(do not shim builtin modules)")
+        .option('--esm', "produce an ESM module as output " +
+                         "(when output is a single JS file)")
         .action(build);
 
     prog.command('launcher')
@@ -35,6 +37,7 @@ async function build(o: any) {
     if (o.outDir) proj.buildDir = o.outDir;
     _.opts.mode = o.prod ? 'prod' : 'dev';
     _.opts.target = o.node ? 'node' : 'browser';
+    _.opts.module = o.esm ? 'esm' : undefined;
 
     if (o.watch)
         _.buildWatch(proj, true)

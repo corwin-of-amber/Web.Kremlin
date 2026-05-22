@@ -94,7 +94,11 @@ class ConcatenatedJSModule extends InEnvironment implements CompilationUnit {
     main(deps: ModuleDependency<AcornJSModule>[], globals?: GlobalDependencies) {
         var keys = deps.map(d => d.target.normalize().canonicalName),
             globmap = new JSGlobals(globals).js();
-        return `{ let c = kremlin.main(${JSON.stringify(keys)}, ${globmap}); if (typeof module !== 'undefined') module.exports = c; }`;
+        if (this.env.policy?.exportAs == 'esm')
+            /** @todo for now it only exposes the default import */
+            return `export default kremlin.main(${JSON.stringify(keys)}, ${globmap}).default;`
+        else
+            return `{ let c = kremlin.main(${JSON.stringify(keys)}, ${globmap}); if (typeof module !== 'undefined') module.exports = c; }`;
     }
 
     _urlOf(m: SourceFile) {

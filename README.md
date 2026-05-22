@@ -47,7 +47,8 @@ There are a few command-line options (try `kremlin --help`):
 |-------------------|-----------------|
 | `-w` / `--watch`  | Keep running and recompile whenever files in the current directory change. |
 | `-p` / `--prod`   | Generate a production build — force concatenation of all the `.js` files into a single bundle.  |
-| `--node`          | Generate a bundle that runs in Node.js (only for a `.js` entry point).     |
+| `--node`          | Generate a bundle that runs in Node.js (only for a `.js`/`.ts` entry point).     |
+| `--esm`           | Generate an ESM module (only for a `.js`/`.ts` entry point).     |
 
 ## Extra stuff
 

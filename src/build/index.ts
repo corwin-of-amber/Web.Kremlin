@@ -59,8 +59,11 @@ class Builder {
             break;
         case 'prod':
             this.env.adjustments['html'] = [new ProdAdjustments.Html];
-            break;            
+            break;
         }
+
+        if (this.env.policy && this.opts.module)
+            this.env.policy.exportAs = this.opts.module;
 
         var wd = this.wd = new PackageDir(this.proj.wd);
         Environment.runIn(this.env, () => {
@@ -143,7 +146,8 @@ class Builder {
     static DEFAULT_OPTIONS: BuildOptions = {mode: "dev", target: "browser"};
 }
 
-type BuildOptions = { mode?: "prod" | "dev", target?: "node" | "browser" };
+type BuildOptions = { mode?: "prod" | "dev", target?: "node" | "browser",
+                      module?: "esm" };
 
 
 

@@ -100,6 +100,8 @@ interface Policy {
     packageEntryPoint(pd: PackageDir): SourceFile;
     packageAliases(pd: PackageDir): {[name: string]: any}[]
     packageOverrides(pd: PackageDir): {[name: string]: any}[]
+
+    exportAs?: 'esm'
 }
 
 class PolicyBase implements Policy {
