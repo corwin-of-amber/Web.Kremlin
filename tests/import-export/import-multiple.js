@@ -1,7 +1,11 @@
+import assert from 'assert'; /** @kremlin.native */
 import fs, { readdirSync } from 'fs';
+import sf from 'fs';
 
 function mustUse() {
-    console.log(fs.existsSync);  /* bug: becomes `_0.default.existsSync` */
+    console.log(sf.existsSync);  /* this is just for reference */
+    console.log(fs.existsSync);
+    assert(sf.existsSync === fs.existsSync, 'INCORRECT');
     console.log(readdirSync);
 }
 

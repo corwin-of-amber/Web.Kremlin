@@ -229,7 +229,7 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
     }
 
     processImportStmt(imp: AcornTypes.ImportDeclaration, ref: ModuleRef): Subst<AcornTypes.ImportDeclaration | AcornTypes.Identifier>[] {
-        var lhs: string, rename: Rename[] = undefined, isDefault = false;
+        var lhs: string, rename: Rename[] = undefined, isDefault = false, reassign = "";
         if (imp.specifiers.length == 1 && 
             (imp.specifiers[0].type === 'ImportDefaultSpecifier'
              || imp.specifiers[0].type === 'ImportNamespaceSpecifier')) {
@@ -239,12 +239,16 @@ class AcornJSModule extends InEnvironment implements CompilationUnit {
         }
         else {
             lhs = this._freshVar();
-            rename = imp.specifiers.map(({local, imported}) => ({
-                from: local.name,
-                to: `${lhs}.${imported?.name || 'default'}`
-            }));
+            rename = imp.specifiers.flatMap(({local, imported}) =>
+                imported?.name ? [{
+                    from: local.name,
+                    to: `${lhs}.${imported.name}`
+                }] : []);
+            let d = imp.specifiers.find(({imported}) => !(imported?.name));
+            if (d)
+                reassign = `, ${d.local.name} = ${lhs}.default ?? ${lhs}`;
         }
-        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)};`, rename]] as
+        return [[imp, `let ${lhs} = ${this.makeRequire(ref, isDefault)}${reassign};`, rename]] as
                     Subst<AcornTypes.ImportDeclaration | AcornTypes.Identifier>[];
     }
 
