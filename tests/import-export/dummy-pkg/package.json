@@ -1,0 +1,12 @@
+{
+	"name": "dummy-pkg",
+	"version": "0.0.1",
+	"description": "A dummy package used for import-export tests",
+	"main": "index.js",
+    "exports": {
+        ".": "./index.js",
+        "./mink": {
+            "import": "./lib/mink.js"
+        }
+    }
+}

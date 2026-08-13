@@ -5,6 +5,7 @@
         "elided": {}
     },
     "dependencies": {
+        "dummy-pkg": "file:import-export/dummy-pkg",
         "vue": "^3.2.45"
     }
 }

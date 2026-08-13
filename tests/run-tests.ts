@@ -18,7 +18,7 @@ function mktempdir() {
 }
 
 const BUNDLES = {
-    'all': 'import-export/export-decl.js import-export/export-default.js import-export/export-from.js import-export/export-imported.js import-export/import-multiple.js import-export/import-named.js import-export/import-stub.js import-export/index.js'
+    'all': 'import-export/export-decl.js import-export/export-default.js import-export/export-from.js import-export/export-imported.js import-export/import-multiple.js import-export/import-named.js import-export/import-stub.js import-export/import-package.js import-export/index.js'
 }
 
 async function main() {
