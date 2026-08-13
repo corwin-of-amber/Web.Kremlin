@@ -3,11 +3,12 @@
         "target": "es2020",
         "module": "es2020",
         "lib": ["es2022", "dom"],
-        "moduleResolution": "node",
+        "types": ["node"],
+        "moduleResolution": "bundler",
         "allowSyntheticDefaultImports": true,
         "esModuleInterop": true,
-        "downlevelIteration": true,
-        "experimentalDecorators": true
+        "experimentalDecorators": true,
+        "strict": false
     },
     "include": ["src"],
     "exclude": ["src/build/testbed.ts"]
